@@ -37,8 +37,11 @@ public class JuniperCollector {
             "<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"2\">" +
             "<close-session/></rpc>]]>]]>";
 
+    private static final String DELIM = "]]>]]>";
+
     private final String login;
     private final String pass;
+    private final StringBuilder leftover = new StringBuilder();
 
     public JuniperCollector(String login, String pass) {
         this.login = login;
@@ -87,6 +90,7 @@ public class JuniperCollector {
     }
 
     private String fetchNetconf(String hostname) throws Exception {
+        leftover.setLength(0);
         log.info("Connecting to {} via NETCONF/SSH", hostname);
         JSch jsch = new JSch();
         Session session = jsch.getSession(login, hostname, 22);
@@ -123,14 +127,21 @@ public class JuniperCollector {
 
     private String readUntilDelimiter(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder(65536);
+        sb.append(leftover);
+        leftover.setLength(0);
+
         byte[] buf = new byte[8192];
-        String delim = "]]>]]>";
-        while (true) {
+        int idx = sb.indexOf(DELIM);
+        while (idx < 0) {
             int n = in.read(buf);
             if (n == -1) break;
             sb.append(new String(buf, 0, n, StandardCharsets.UTF_8));
-            int idx = sb.indexOf(delim);
-            if (idx >= 0) return sb.substring(0, idx);
+            idx = sb.indexOf(DELIM);
+        }
+
+        if (idx >= 0) {
+            leftover.append(sb, idx + DELIM.length(), sb.length());
+            return sb.substring(0, idx);
         }
         return sb.toString();
     }
