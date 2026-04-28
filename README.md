@@ -1,82 +1,84 @@
 # routing-instances-report
 
-Collects VRF/VPLS routing instance definitions from network routers
-(Juniper JunOS, Cisco IOS, MikroTik RouterOS) and publishes a live HTML
-report served by nginx.
+Збирає визначення VRF/VPLS routing instance з мережевих маршрутизаторів
+(Juniper JunOS, Cisco IOS, MikroTik RouterOS) і публікує актуальний HTML-звіт,
+що роздається nginx.
 
-## Why
+## Навіщо
 
-Large service-provider networks carry dozens or hundreds of VRFs and VPLS
-circuits spread across multiple routers of different vendors. Keeping track of
-which VRF lives on which router — and what its Route Distinguisher is — becomes
-a chore. This tool polls every router once a day, merges the data into a single
-indexed HTML page, and lets anyone on the NOC team open a browser and instantly
-see the full picture.
+У великих провайдерських мережах десятки або сотні VRF і VPLS-контурів
+розподілені між маршрутизаторами різних вендорів. Відстежувати, який VRF на
+якому роутері і який у нього Route Distinguisher, — той ще клопіт. Інструмент
+опитує кожен маршрутизатор раз на добу, об'єднує дані в єдину індексовану
+HTML-сторінку, і будь-хто з NOC-команди може відкрити браузер і одразу побачити
+повну картину.
 
-## How it works
+## Як це працює
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Docker container                                   │
-│                                                     │
+│  Docker-контейнер                                    │
+│                                                      │
 │  ┌──────────────────────────┐   ┌─────────────────┐ │
 │  │  routing-instances-report│   │      nginx      │ │
-│  │  (Java, runs once/day)   │──▶│  serves HTML    │ │
-│  │                          │   │  on port 80     │ │
+│  │  (Java, раз на добу)     │──▶│  роздає HTML    │ │
+│  │                          │   │  на порту 80    │ │
 │  │  Juniper  ← NETCONF/SSH  │   └─────────────────┘ │
-│  │  Cisco    ← Telnet       │                       │
-│  │  RouterOS ← SSH exec     │                       │
-│  └──────────────────────────┘                       │
+│  │  Cisco    ← Telnet       │                        │
+│  │  RouterOS ← SSH exec     │                        │
+│  └──────────────────────────┘                        │
 └─────────────────────────────────────────────────────┘
 ```
 
-1. **Juniper JunOS** — connects via SSH, establishes a NETCONF session
-   (RFC 6241, NETCONF 1.0 framing `]]>]]>`), fetches the running
-   configuration and extracts `//routing-instances/instance` nodes.
+1. **Juniper JunOS** — підключається через SSH, відкриває NETCONF-сесію
+   (RFC 6241, фреймінг NETCONF 1.0 `]]>]]>`), отримує running-конфігурацію
+   і витягує вузли `//routing-instances/instance`.
 
-2. **Cisco IOS** — connects via Telnet, logs in, enters enable mode,
-   runs `show running-config`, and parses `ip vrf` / `rd` blocks.
+2. **Cisco IOS** — підключається через Telnet, входить у режим enable,
+   виконує `show running-config`, парсить блоки `ip vrf` / `rd`.
 
-3. **MikroTik RouterOS** — connects via SSH, runs
-   `/ip route vrf export compact`, and parses the continuation-line output.
+3. **MikroTik RouterOS** — підключається через SSH, виконує
+   `/ip route vrf export compact`, парсить вивід із рядками-продовженнями.
 
-All data is merged by a composite key (padded instance name + MD5 + SHA-1,
-matching the original Perl implementation) so the same VRF appearing on
-multiple routers is shown as one row with all routers listed.
+Всі дані об'єднуються за складеним ключем (ім'я instance, доповнене до 50
+символів + MD5 + SHA-1, сумісне з оригінальною Perl-реалізацією), тому один
+VRF, що присутній на кількох маршрутизаторах, відображається одним рядком із
+переліком усіх роутерів.
 
-The resulting HTML contains two sections:
-- an **ordered list** of VRFs sorted by RD numeric product (AS × ID), with
-  bidirectional anchor links;
-- a **table** with type, name, RD, and the list of routers that carry it.
+Результуючий HTML містить два розділи:
+- **впорядкований список** VRF, відсортованих за числовим добутком RD (AS × ID),
+  з двонаправленими anchor-посиланнями;
+- **таблиця** з типом, назвою, RD і переліком маршрутизаторів.
 
-The raw XML/config dumps saved to `/tmp/juniper-<host>.xml` and
-`/tmp/cisco-<host>.conf` are useful for debugging.
+Сирі XML/config-дампи зберігаються у `/tmp/juniper-<host>.xml` і
+`/tmp/cisco-<host>.conf` — зручно для налагодження.
 
-## Logging
+## Логування
 
-The application uses [Log4j2](https://logging.apache.org/log4j/2.x/) (via Lombok `@Log4j2`).
-All output goes to **stdout** so Docker captures it with `docker logs`.
+Застосунок використовує [Log4j2](https://logging.apache.org/log4j/2.x/) (через
+Lombok `@Log4j2`). Весь вивід іде до **stdout**, тому Docker перехоплює його
+через `docker logs`.
 
-### Log levels
+### Рівні логування
 
-| Level   | What is logged |
-|---------|----------------|
-| `INFO`  | Startup host list · connecting to each router · parsed instance count · every row of the final table · report file path |
-| `DEBUG` | NETCONF session open/close · SSH/Telnet session established · every individual `merge` (name / type / RD / router) · dump file paths (`/tmp/juniper-*.xml`, `/tmp/cisco-*.conf`) |
-| `WARN`  | Minimum level for JSch SSH messages (hardcoded — avoids SSH negotiation noise regardless of `LOG_LEVEL`) |
+| Рівень  | Що логується |
+|---------|--------------|
+| `INFO`  | Список хостів при старті · підключення до кожного маршрутизатора · кількість розібраних instance · кожен рядок підсумкової таблиці · шлях до файлу звіту |
+| `DEBUG` | Відкриття/закриття NETCONF-сесії · встановлення SSH/Telnet-сесії · кожен окремий `merge` (ім'я / тип / RD / роутер) · шляхи до дампів (`/tmp/juniper-*.xml`, `/tmp/cisco-*.conf`) |
+| `WARN`  | Мінімальний рівень для повідомлень JSch (жорстко задано — прибирає шум SSH-погодження незалежно від `LOG_LEVEL`) |
 
-### Controlling the log level
+### Керування рівнем логування
 
-Set the `LOG_LEVEL` environment variable to any Log4j2 level name
-(`trace`, `debug`, `info`, `warn`, `error`). Default is `info`.
+Задати змінну оточення `LOG_LEVEL` з будь-яким ім'ям рівня Log4j2
+(`trace`, `debug`, `info`, `warn`, `error`). За замовчуванням — `info`.
 
-#### Local one-shot run
+#### Локальний одноразовий запуск
 
 ```bash
 LOG_LEVEL=debug java -jar target/routing-instances-report-1.0.jar
 ```
 
-#### docker run — foreground (one-shot, useful for troubleshooting a single router)
+#### docker run — на передньому плані (одноразово, зручно для діагностики одного роутера)
 
 ```bash
 docker run --rm \
@@ -90,7 +92,7 @@ docker run --rm \
   -jar /usr/local/bin/routing-instances-report.jar
 ```
 
-#### docker run — background container with DEBUG, then follow logs
+#### docker run — фоновий контейнер з DEBUG, потім стежити за логами
 
 ```bash
 docker run -d \
@@ -107,63 +109,63 @@ docker run -d \
 docker logs -f routing-report
 ```
 
-#### docker-compose — add one line to the environment block
+#### docker-compose — додати один рядок у блок environment
 
 ```yaml
 environment:
   LOG_LEVEL: debug
 ```
 
-## Project structure
+## Структура проєкту
 
 ```
 routing-instances-report/
-├── Dockerfile                           multi-stage build (JDK 21 → nginx + JRE 21)
-├── pom.xml                              Maven build (fat JAR via maven-shade-plugin)
+├── Dockerfile                           багатоетапне збирання (JDK 21 → nginx + JRE 21)
+├── pom.xml                              Maven-збирання (fat JAR через maven-shade-plugin)
 ├── bin/
-│   └── routing-instances-report.sh     daily loop wrapper (runs JAR, sleeps 24 h)
+│   └── routing-instances-report.sh     добовий цикл (запускає JAR, спить 24 год)
 ├── docker-entrypoint.d/
-│   └── 40-routing-instances-report.sh  launched by nginx entrypoint in background
+│   └── 40-routing-instances-report.sh  запускається entrypoint nginx у фоні
 └── src/main/java/net/ukrhub/routing/instances/report/
-    ├── RoutingInstancesReport.java      main class — reads env vars, drives collection
-    ├── RoutingInstance.java             data model (@Data Lombok)
-    ├── HashUtils.java                   MD5 + SHA-1 composite key (Perl-compatible)
-    ├── JuniperCollector.java            NETCONF over SSH collector
-    ├── CiscoCollector.java              Telnet collector
-    ├── RouterOSCollector.java           SSH exec collector
-    └── ReportGenerator.java             HTML report writer
+    ├── RoutingInstancesReport.java      головний клас — читає env vars, керує збиранням
+    ├── RoutingInstance.java             модель даних (@Data Lombok)
+    ├── HashUtils.java                   складений ключ MD5 + SHA-1 (сумісний з Perl)
+    ├── JuniperCollector.java            збирач NETCONF over SSH
+    ├── CiscoCollector.java              збирач Telnet
+    ├── RouterOSCollector.java           збирач SSH exec
+    └── ReportGenerator.java             генератор HTML-звіту
 ```
 
-## Environment variables
+## Змінні оточення
 
-| Variable        | Required | Description |
-|-----------------|----------|-------------|
-| `ROUTER_USER`   | **yes**  | SSH / Telnet login for all routers |
-| `ROUTER_PASS`   | **yes**  | SSH / Telnet password |
-| `CISCO_ENABLE`  | if Cisco | Cisco enable (privileged) password |
-| `JUNIPER_HOSTS` | no       | Comma-separated Juniper hostnames |
-| `CISCO_HOSTS`   | no       | Comma-separated Cisco hostnames |
-| `ROUTEROS_HOSTS` | no       | Comma-separated MikroTik hostnames |
-| `REPORT_PATH`   | no       | Output HTML path (default: `/usr/share/nginx/html/index.html`) |
-| `LOG_LEVEL`     | no       | Log4j2 level: `trace` `debug` `info` `warn` `error` (default: `info`) |
-| `OPENCHANNEL`   | no       | Juniper SSH channel type: `subsystem-netconf` (default) or `exec` |
+| Змінна           | Обов'язкова      | Опис |
+|------------------|------------------|------|
+| `ROUTER_USER`    | **так**          | SSH / Telnet логін для всіх маршрутизаторів |
+| `ROUTER_PASS`    | **так**          | SSH / Telnet пароль |
+| `CISCO_ENABLE`   | якщо є Cisco     | Cisco enable (privileged) пароль |
+| `JUNIPER_HOSTS`  | ні               | Juniper-хости через кому |
+| `CISCO_HOSTS`    | ні               | Cisco-хости через кому |
+| `ROUTEROS_HOSTS` | ні               | MikroTik-хости через кому |
+| `REPORT_PATH`    | ні               | Шлях до HTML-файлу звіту (за замовчуванням: `/usr/share/nginx/html/index.html`) |
+| `LOG_LEVEL`      | ні               | Рівень Log4j2: `trace` `debug` `info` `warn` `error` (за замовчуванням: `info`) |
+| `OPENCHANNEL`    | ні               | Тип SSH-каналу для Juniper: `subsystem-netconf` (за замовчуванням) або `exec` |
 
-## Building
+## Збирання
 
 ```bash
 mvn package -DskipTests
-# produces target/routing-instances-report-1.0.jar
+# створює target/routing-instances-report-1.0.jar
 ```
 
 ## Docker
 
-### Build image
+### Зібрати образ
 
 ```bash
 docker build -t routing-instances-report .
 ```
 
-### Run
+### Запустити
 
 ```bash
 docker run -d \
@@ -177,10 +179,10 @@ docker run -d \
   routing-instances-report
 ```
 
-The report is available at `http://<host>/` and refreshes automatically once
-per day. The first run happens a few seconds after the container starts.
+Звіт доступний за адресою `http://<host>/` і оновлюється автоматично раз на добу.
+Перший запуск відбувається через кілька секунд після старту контейнера.
 
-### docker-compose example
+### Приклад docker-compose
 
 ```yaml
 services:
@@ -198,14 +200,14 @@ services:
       # LOG_LEVEL: debug
 ```
 
-## Dependencies
+## Залежності
 
-| Library | Purpose |
-|---------|---------|
-| [com.github.mwiede/jsch](https://github.com/mwiede/jsch) | SSH transport for Juniper NETCONF and RouterOS |
-| [commons-net](https://commons.apache.org/proper/commons-net/) | Telnet client for Cisco IOS |
-| [Lombok](https://projectlombok.org/) | Boilerplate reduction (`@Data` on `RoutingInstance`) |
+| Бібліотека | Призначення |
+|------------|-------------|
+| [com.github.mwiede/jsch](https://github.com/mwiede/jsch) | SSH-транспорт для Juniper NETCONF і RouterOS |
+| [commons-net](https://commons.apache.org/proper/commons-net/) | Telnet-клієнт для Cisco IOS |
+| [Lombok](https://projectlombok.org/) | Скорочення шаблонного коду (`@Data` на `RoutingInstance`) |
 
-## License
+## Ліцензія
 
-See [LICENSE](LICENSE).
+Дивись [LICENSE](LICENSE).
