@@ -1,4 +1,4 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -7,8 +7,8 @@ import java.security.NoSuchAlgorithmException;
 public class HashUtils {
 
     /**
-     * Computes the composite hash key used to deduplicate instances across routers.
-     * Matches the Perl: $padded.":".md5_hex($padded.$type).":".sha1_hex($padded.$type)
+     * Composite key matching the original Perl:
+     * $padded.":".md5_hex($padded.$type).":".sha1_hex($padded.$type)
      */
     public static String computeKey(String paddedName, String type) {
         String input = paddedName + type;

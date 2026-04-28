@@ -1,4 +1,4 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -31,14 +31,10 @@ public class ReportGenerator {
     public static void generate(Map<String, RoutingInstance> instances,
                                  Map<String, Map<String, String>> vrfVplsList,
                                  String outputPath) throws IOException {
-        String vrfList = buildVrfList(vrfVplsList);
-        String vrfInfo = buildVrfInfo(instances);
-        String postBr  = buildPostBr(instances.size());
-
         String html = HTML_TEMPLATE
-                .replace("    <!--VRFVPLSLIST-->",  vrfList  + "    <!--VRFVPLSLIST-->")
-                .replace("\t    <!--VRFVPLSINFO-->", vrfInfo  + "\t    <!--VRFVPLSINFO-->")
-                .replace("    <!--VRFVPPOSTBR-->",  postBr   + "    <!--VRFVPPOSTBR-->");
+                .replace("    <!--VRFVPLSLIST-->",  buildVrfList(vrfVplsList) + "    <!--VRFVPLSLIST-->")
+                .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances)  + "\t    <!--VRFVPLSINFO-->")
+                .replace("    <!--VRFVPPOSTBR-->",  buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         try (PrintWriter pw = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8))) {
@@ -49,37 +45,35 @@ public class ReportGenerator {
     private static String buildVrfList(Map<String, Map<String, String>> vrfVplsList) {
         StringBuilder sb = new StringBuilder("    <p><h1>Список VRF/VPLS упорядкований за RD</h1><ol>\n");
 
-        List<Map.Entry<String, Map<String, String>>> entries = new ArrayList<>(vrfVplsList.entrySet());
         Pattern rdPat = Pattern.compile("RD:(\\d+):(\\d+)");
-        entries.sort((a, b) -> {
-            Matcher ma = rdPat.matcher(a.getKey());
-            Matcher mb = rdPat.matcher(b.getKey());
-            long va = ma.find() ? Long.parseLong(ma.group(1)) * Long.parseLong(ma.group(2)) : 0;
-            long vb = mb.find() ? Long.parseLong(mb.group(1)) * Long.parseLong(mb.group(2)) : 0;
-            return Long.compare(va, vb);
-        });
+        vrfVplsList.entrySet().stream()
+                .sorted(Comparator.comparingLong(e -> {
+                    Matcher m = rdPat.matcher(e.getKey());
+                    return m.find() ? Long.parseLong(m.group(1)) * Long.parseLong(m.group(2)) : 0L;
+                }))
+                .forEach(e -> {
+                    String rdl  = e.getKey().replaceAll("\\s", "");
+                    String name = e.getValue().get("name");
+                    String href = e.getValue().get("href");
+                    sb.append(String.format(
+                            "    <li><a href=\"#%s\">%s</a> - <a name=\"%s\" />%s<br /></li>\n",
+                            href, rdl, name, name));
+                });
 
-        for (Map.Entry<String, Map<String, String>> e : entries) {
-            String rdl  = e.getKey().replaceAll("\\s", "");
-            String name = e.getValue().get("name");
-            String href = e.getValue().get("href");
-            sb.append(String.format(
-                    "    <li><a href=\"#%s\">%s</a> - <a name=\"%s\" />%s<br /></li>\n",
-                    href, rdl, name, name));
-        }
         sb.append("    </ol></p>\n");
         return sb.toString();
     }
 
     private static String buildVrfInfo(Map<String, RoutingInstance> instances) {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb  = new StringBuilder();
         String sp = "\t    ";
-        int num = 0;
+        int[] num = {0};
 
-        for (RoutingInstance ri : instances.values()) {
-            num++;
+        instances.values().forEach(ri -> {
+            num[0]++;
             System.out.printf("[%-4s] %-50s %s %s%n",
-                    ri.type, ri.name, ri.rd, String.join(", ", ri.hosts));
+                    ri.getType(), ri.getName(), ri.getRd(),
+                    String.join(", ", ri.getHosts()));
 
             sb.append(String.format(
                     sp + "<tr>" +
@@ -89,12 +83,12 @@ public class ReportGenerator {
                     "<td style=\"vertical-align: top;\"><a href=\"#%s\">%s</a></td>" +
                     "<td style=\"vertical-align: top;\">%s</td>" +
                     "</tr>\n",
-                    num,
-                    ri.type,
-                    ri.hrefname, ri.name,
-                    ri.name, ri.rd,
-                    String.join(", ", ri.hosts)));
-        }
+                    num[0],
+                    ri.getType(),
+                    ri.getHrefname(), ri.getName(),
+                    ri.getName(),     ri.getRd(),
+                    String.join(", ", ri.getHosts())));
+        });
         return sb.toString();
     }
 

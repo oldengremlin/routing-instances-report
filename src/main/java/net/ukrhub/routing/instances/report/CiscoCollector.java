@@ -1,4 +1,4 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import org.apache.commons.net.telnet.TelnetClient;
 
@@ -10,7 +10,7 @@ import java.util.regex.*;
 
 /**
  * Collects VRF definitions from Cisco IOS routers via Telnet.
- * Parses "show running-config" output for "ip vrf NAME / rd X:Y" blocks.
+ * Parses "show running-config" for "ip vrf NAME / rd X:Y" blocks.
  */
 public class CiscoCollector {
 
@@ -34,8 +34,7 @@ public class CiscoCollector {
         telnet.setSoTimeout(TIMEOUT_MS);
 
         InputStream in  = telnet.getInputStream();
-        OutputStream rawOut = telnet.getOutputStream();
-        PrintStream out = new PrintStream(rawOut, true, StandardCharsets.UTF_8);
+        PrintStream out = new PrintStream(telnet.getOutputStream(), true, StandardCharsets.UTF_8);
 
         readUntil(in, "Username:");
         out.println(login);
@@ -50,7 +49,6 @@ public class CiscoCollector {
         readUntil(in, "#");
         out.println("show running-config");
         String runningConfig = readUntil(in, "#");
-
         out.println("exit");
         telnet.disconnect();
 
@@ -82,47 +80,29 @@ public class CiscoCollector {
     private void parseConfig(String hostname, String[] lines,
                               Map<String, RoutingInstance> instances,
                               Map<String, Map<String, String>> vrfVplsList) {
-        String instance = "";
-        String instancerd = "";
-        final String type = "vrf";
-
         Pattern vrfPat = Pattern.compile("^ip\\s+vrf\\s+(.+)");
         Pattern rdPat  = Pattern.compile("^\\s+rd\\s+(.+)");
+
+        String instance = "";
+        String rd       = "";
 
         for (String s : lines) {
             Matcher mVrf = vrfPat.matcher(s);
             Matcher mRd  = rdPat.matcher(s);
 
             if (mVrf.matches()) {
-                instance   = mVrf.group(1).trim();
-                instancerd = "";
+                instance = mVrf.group(1).trim();
+                rd       = "";
             } else if (mRd.matches() && !instance.isEmpty()) {
-                instancerd = mRd.group(1).trim();
+                rd = mRd.group(1).trim();
             }
 
-            if (!instance.isEmpty() && !instancerd.isEmpty()) {
-                addInstance(instances, vrfVplsList, instance, type, instancerd, hostname.toUpperCase());
-                instance   = "";
-                instancerd = "";
+            if (!instance.isEmpty() && !rd.isEmpty()) {
+                JuniperCollector.merge(instances, vrfVplsList,
+                        instance, "vrf", rd, hostname.toUpperCase());
+                instance = "";
+                rd       = "";
             }
         }
-    }
-
-    private void addInstance(Map<String, RoutingInstance> instances,
-                              Map<String, Map<String, String>> vrfVplsList,
-                              String name, String type, String rd, String hostEntry) {
-        String padded = String.format("%-50s", name);
-        String key    = HashUtils.computeKey(padded, type);
-
-        RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
-        ri.name     = name;
-        ri.type     = type.toUpperCase();
-        ri.rd       = String.format(" [RD:%-11s]", rd);
-        ri.hrefname = ri.rd.replaceAll("[\\[\\]\\s+]", "").replace(":", "_");
-        ri.hosts.add(hostEntry);
-
-        vrfVplsList.computeIfAbsent(ri.rd, k -> new LinkedHashMap<>())
-                   .putIfAbsent("name", ri.name);
-        vrfVplsList.get(ri.rd).put("href", ri.hrefname);
     }
 }

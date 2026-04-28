@@ -1,4 +1,4 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import com.jcraft.jsch.*;
 
@@ -9,7 +9,7 @@ import java.util.regex.*;
 
 /**
  * Collects VRF definitions from MikroTik RouterOS via SSH.
- * Runs "/ip route vrf export compact" and parses the continuation-line output.
+ * Executes "/ip route vrf export compact" and parses continuation-line output.
  */
 public class RouterOSCollector {
 
@@ -44,17 +44,15 @@ public class RouterOSCollector {
         channel.disconnect();
         session.disconnect();
 
-        String[] lines = baos.toString(StandardCharsets.UTF_8).split("\r?\n");
-        parseConfig(hostname, lines, instances, vrfVplsList);
+        parseConfig(hostname, baos.toString(StandardCharsets.UTF_8).split("\r?\n"),
+                instances, vrfVplsList);
     }
 
     private void parseConfig(String hostname, String[] lines,
                               Map<String, RoutingInstance> instances,
                               Map<String, Map<String, String>> vrfVplsList) {
-        Pattern sectionPat = Pattern.compile(".*/.*");
-        Pattern vrfPat     = Pattern.compile(
+        Pattern vrfPat = Pattern.compile(
                 "/ip route vrf add .+ route-distinguisher=([^ ]+) routing-mark=(.+)");
-        final String type = "vrf";
 
         String csect = "";
         String cstr  = "";
@@ -63,41 +61,21 @@ public class RouterOSCollector {
             String s = rawLine.trim();
             if (s.startsWith("#") || s.isEmpty()) continue;
 
-            if (sectionPat.matcher(s).matches() && !s.endsWith("\\")) {
-                // New section header
+            if (s.contains("/") && !s.endsWith("\\")) {
                 csect = s + " ";
                 cstr  = csect;
             } else if (s.endsWith("\\")) {
                 cstr += s.replaceAll("\\\\\\s*$", "");
             } else {
                 cstr += s;
-                // Complete logical line — try to match a VRF definition
                 Matcher m = vrfPat.matcher(cstr);
                 if (m.find()) {
-                    String rd       = m.group(1).trim();
-                    String instance = m.group(2).trim();
-                    addInstance(instances, vrfVplsList, instance, type, rd, hostname.toUpperCase());
+                    JuniperCollector.merge(instances, vrfVplsList,
+                            m.group(2).trim(), "vrf", m.group(1).trim(),
+                            hostname.toUpperCase());
                 }
                 cstr = csect;
             }
         }
-    }
-
-    private void addInstance(Map<String, RoutingInstance> instances,
-                              Map<String, Map<String, String>> vrfVplsList,
-                              String name, String type, String rd, String hostEntry) {
-        String padded = String.format("%-50s", name);
-        String key    = HashUtils.computeKey(padded, type);
-
-        RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
-        ri.name     = name;
-        ri.type     = type.toUpperCase();
-        ri.rd       = String.format(" [RD:%-11s]", rd);
-        ri.hrefname = ri.rd.replaceAll("[\\[\\]\\s+]", "").replace(":", "_");
-        ri.hosts.add(hostEntry);
-
-        vrfVplsList.computeIfAbsent(ri.rd, k -> new LinkedHashMap<>())
-                   .putIfAbsent("name", ri.name);
-        vrfVplsList.get(ri.rd).put("href", ri.hrefname);
     }
 }

@@ -1,22 +1,28 @@
 # Stage 1: build fat JAR
-FROM maven:3.9-eclipse-temurin-17 AS builder
+FROM eclipse-temurin:25-jdk-noble AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
 COPY src ./src
 RUN mvn -q package -DskipTests
 
-# Stage 2: nginx + JRE runtime
+# Stage 2: slim JRE layer (copy from Temurin image)
+FROM eclipse-temurin:25-jre-noble AS jre-provider
+
+# Stage 3: nginx + JRE runtime
 FROM nginx:latest
 LABEL maintainer="Alexander Russkih <olden@ukr-com.net>"
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        default-jre-headless \
-        locales locales-all && \
+    apt-get install -y --no-install-recommends locales locales-all && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /build/target/routing-instances-report-1.0.0.jar \
+COPY --from=jre-provider /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+COPY --from=builder /build/target/routing-instances-report-1.0.jar \
                     /usr/local/bin/routing-instances-report.jar
 
 COPY bin/routing-instances-report.sh        /usr/local/bin/routing-instances-report.sh
@@ -29,9 +35,12 @@ RUN chmod +x /usr/local/bin/routing-instances-report.sh \
 ENV LANG=uk_UA.UTF-8
 ENV TZ=Europe/Kiev
 
-# Environment variables for the report collector (supply at runtime):
-# ROUTER_USER, ROUTER_PASS, CISCO_ENABLE
-# JUNIPER_HOSTS, CISCO_HOSTS, ROUTEROS_HOSTS
-# REPORT_PATH (default: /usr/share/nginx/html/index.html)
+# Required at runtime — supply via -e or docker-compose environment:
+#   ROUTER_USER, ROUTER_PASS
+#   CISCO_ENABLE        (if CISCO_HOSTS is non-empty)
+#   JUNIPER_HOSTS       (comma-separated)
+#   CISCO_HOSTS         (comma-separated)
+#   ROUTEROS_HOSTS      (comma-separated)
+#   REPORT_PATH         (default: /usr/share/nginx/html/index.html)
 
 EXPOSE 80

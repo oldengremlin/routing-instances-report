@@ -1,19 +1,19 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import java.util.*;
 
 /**
- * Entry point. Configuration is read entirely from environment variables:
+ * Entry point. All configuration comes from environment variables:
  *
- *   ROUTER_USER      – SSH/Telnet login (required)
- *   ROUTER_PASS      – SSH/Telnet password (required)
- *   CISCO_ENABLE     – Cisco enable password (required when CISCO_HOSTS is set)
- *   JUNIPER_HOSTS    – comma-separated Juniper hostnames (default: empty)
- *   CISCO_HOSTS      – comma-separated Cisco hostnames   (default: empty)
- *   ROUTEROS_HOSTS   – comma-separated RouterOS hostnames (default: empty)
- *   REPORT_PATH      – output HTML path (default: /usr/share/nginx/html/index.html)
+ *   ROUTER_USER      – SSH/Telnet login          (required)
+ *   ROUTER_PASS      – SSH/Telnet password        (required)
+ *   CISCO_ENABLE     – Cisco enable password      (required when CISCO_HOSTS is set)
+ *   JUNIPER_HOSTS    – comma-separated hostnames  (default: empty)
+ *   CISCO_HOSTS      – comma-separated hostnames  (default: empty)
+ *   ROUTEROS_HOSTS   – comma-separated hostnames  (default: empty)
+ *   REPORT_PATH      – output HTML file path      (default: /usr/share/nginx/html/index.html)
  */
-public class App {
+public class RoutingInstancesReport {
 
     public static void main(String[] args) throws Exception {
         String login       = require("ROUTER_USER");
@@ -25,8 +25,8 @@ public class App {
         List<String> ciscoHosts    = parseList(env("CISCO_HOSTS",    ""));
         List<String> routerosHosts = parseList(env("ROUTEROS_HOSTS", ""));
 
-        Map<String, RoutingInstance>         instances   = new TreeMap<>();
-        Map<String, Map<String, String>>     vrfVplsList = new LinkedHashMap<>();
+        Map<String, RoutingInstance>     instances   = new TreeMap<>();
+        Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
         List<String> analyzed = new ArrayList<>();
 
         JuniperCollector  juniper  = new JuniperCollector(login, pass);
@@ -36,31 +36,22 @@ public class App {
         for (String host : juniperHosts) {
             analyzed.add(host);
             progress(analyzed);
-            try {
-                juniper.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                System.err.printf("ERROR: Juniper %s: %s%n", host, e.getMessage());
-            }
+            try { juniper.collect(host, instances, vrfVplsList); }
+            catch (Exception e) { System.err.printf("ERROR Juniper %s: %s%n", host, e.getMessage()); }
         }
 
         for (String host : ciscoHosts) {
             analyzed.add(host);
             progress(analyzed);
-            try {
-                cisco.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                System.err.printf("ERROR: Cisco %s: %s%n", host, e.getMessage());
-            }
+            try { cisco.collect(host, instances, vrfVplsList); }
+            catch (Exception e) { System.err.printf("ERROR Cisco %s: %s%n", host, e.getMessage()); }
         }
 
         for (String host : routerosHosts) {
             analyzed.add(host);
             progress(analyzed);
-            try {
-                routeros.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                System.err.printf("ERROR: RouterOS %s: %s%n", host, e.getMessage());
-            }
+            try { routeros.collect(host, instances, vrfVplsList); }
+            catch (Exception e) { System.err.printf("ERROR RouterOS %s: %s%n", host, e.getMessage()); }
         }
 
         System.out.println();
@@ -88,8 +79,8 @@ public class App {
         List<String> result = new ArrayList<>();
         if (csv == null || csv.isBlank()) return result;
         for (String s : csv.split(",")) {
-            String trimmed = s.trim();
-            if (!trimmed.isEmpty()) result.add(trimmed);
+            String t = s.trim();
+            if (!t.isEmpty()) result.add(t);
         }
         return result;
     }

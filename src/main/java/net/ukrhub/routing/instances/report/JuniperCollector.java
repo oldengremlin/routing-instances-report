@@ -1,4 +1,4 @@
-package net.ukrcom.routingreport;
+package net.ukrhub.routing.instances.report;
 
 import com.jcraft.jsch.*;
 import org.w3c.dom.*;
@@ -11,7 +11,7 @@ import java.util.*;
 
 /**
  * Collects routing instances from Juniper routers via NETCONF over SSH.
- * NETCONF 1.0 framing is used (]]>]]> delimiter).
+ * Uses NETCONF 1.0 framing (]]>]]> delimiter).
  */
 public class JuniperCollector {
 
@@ -40,7 +40,7 @@ public class JuniperCollector {
 
     public JuniperCollector(String login, String pass) {
         this.login = login;
-        this.pass = pass;
+        this.pass  = pass;
     }
 
     public void collect(String hostname, Map<String, RoutingInstance> instances,
@@ -63,21 +63,21 @@ public class JuniperCollector {
         for (int i = 0; i < riNodes.getLength(); i++) {
             Node ri = riNodes.item(i);
 
-            String instance     = xp.evaluate("name/text()", ri).trim();
-            String instancetype = xp.evaluate("instance-type/text()", ri).trim();
-            String instancerd   = xp.evaluate("route-distinguisher/rd-type/text()", ri).trim();
-            String inactive     = (ri instanceof Element) ? ((Element) ri).getAttribute("inactive") : "";
+            String name     = xp.evaluate("name/text()", ri).trim();
+            String type     = xp.evaluate("instance-type/text()", ri).trim();
+            String rd       = xp.evaluate("route-distinguisher/rd-type/text()", ri).trim();
+            String inactive = (ri instanceof Element e) ? e.getAttribute("inactive") : "";
 
             String siteId = "";
-            if ("vpls".equals(instancetype) && !instancerd.isEmpty()) {
+            if ("vpls".equals(type) && !rd.isEmpty()) {
                 siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
             }
 
             String hostEntry = hostname.toUpperCase()
-                    + (!siteId.isEmpty()         ? ":" + siteId : "")
+                    + (!siteId.isEmpty()          ? ":" + siteId : "")
                     + ("inactive".equals(inactive) ? "(-)"       : "");
 
-            addInstance(instances, vrfVplsList, instance, instancetype, instancerd, hostEntry);
+            merge(instances, vrfVplsList, name, type, rd, hostEntry);
         }
     }
 
@@ -97,7 +97,7 @@ public class JuniperCollector {
         InputStream  in  = channel.getInputStream();
         channel.connect(15_000);
 
-        readUntilDelimiter(in);             // consume server hello
+        readUntilDelimiter(in);       // consume server hello
         send(out, NETCONF_HELLO);
         send(out, GET_CONFIG_RPC);
         String response = readUntilDelimiter(in);
@@ -127,23 +127,23 @@ public class JuniperCollector {
         return sb.toString();
     }
 
-    private void addInstance(Map<String, RoutingInstance> instances,
-                              Map<String, Map<String, String>> vrfVplsList,
-                              String name, String type, String rd, String hostEntry) {
+    static void merge(Map<String, RoutingInstance> instances,
+                      Map<String, Map<String, String>> vrfVplsList,
+                      String name, String type, String rd, String hostEntry) {
         String padded = String.format("%-50s", name);
         String key    = HashUtils.computeKey(padded, type);
 
         RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
-        ri.name     = name;
-        ri.type     = type.toUpperCase();
-        ri.rd       = rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd);
-        ri.hrefname = ri.rd.replaceAll("[\\[\\]\\s+]", "").replace(":", "_");
-        ri.hosts.add(hostEntry);
+        ri.setName(name);
+        ri.setType(type.toUpperCase());
+        ri.setRd(rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd));
+        ri.setHrefname(ri.getRd().replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
+        ri.getHosts().add(hostEntry);
 
-        if (ri.rd.contains("RD:")) {
-            vrfVplsList.computeIfAbsent(ri.rd, k -> new LinkedHashMap<>())
-                       .putIfAbsent("name", ri.name);
-            vrfVplsList.get(ri.rd).put("href", ri.hrefname);
+        if (ri.getRd().contains("RD:")) {
+            vrfVplsList.computeIfAbsent(ri.getRd(), k -> new LinkedHashMap<>())
+                       .putIfAbsent("name", ri.getName());
+            vrfVplsList.get(ri.getRd()).put("href", ri.getHrefname());
         }
     }
 }
