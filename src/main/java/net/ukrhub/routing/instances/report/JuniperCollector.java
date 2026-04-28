@@ -180,10 +180,11 @@ public class JuniperCollector {
         String key = HashUtils.computeKey(padded, type);
 
         RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
-        ri.setName(name);
-        ri.setType(type.toUpperCase());
-        ri.setRd(rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd));
-        ri.setHrefname(ri.getRd().replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
+        String rdStr = rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd);
+        ri.setName(name)
+          .setType(type.toUpperCase())
+          .setRd(rdStr)
+          .setHrefname(rdStr.replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
         ri.getHosts().add(hostEntry);
         log.debug("Merge: [{}] {} {} @ {}", ri.getType(), name, ri.getRd().strip(), hostEntry);
 
