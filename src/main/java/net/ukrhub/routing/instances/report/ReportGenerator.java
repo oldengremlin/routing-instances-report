@@ -106,9 +106,11 @@ public class ReportGenerator {
             return ri.getHosts().stream()
                     .sorted(Comparator.comparingInt((String h) -> {
                         int colon = h.indexOf(':');
-                        if (colon < 0) return 0;
+                        if (colon < 0) {
+                            return 0;
+                        }
                         String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
-                        return num.isEmpty() ? 0 : Integer.parseInt(num);
+                        return num.isEmpty() ? 0 : Integer.valueOf(num);
                     }).thenComparing(Comparator.naturalOrder()))
                     .collect(Collectors.toList());
         }
