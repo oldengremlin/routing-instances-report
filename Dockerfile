@@ -1,6 +1,6 @@
 # Stage 1: build fat JAR
 FROM eclipse-temurin:25-jdk-noble AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
+RUN apt update && apt install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
@@ -11,11 +11,11 @@ RUN mvn -q package -DskipTests
 FROM eclipse-temurin:25-jre-noble AS jre-provider
 
 # Stage 3: nginx + JRE runtime
-FROM nginx:latest
+FROM nginx:mainline
 LABEL maintainer="Alexander Russkih <olden@ukr-com.net>"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends locales locales-all && \
+RUN apt update && \
+    apt install -y --no-install-recommends locales locales-all && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=jre-provider /opt/java/openjdk /opt/java/openjdk
