@@ -104,12 +104,12 @@ public class ReportGenerator {
     private static List<String> sortedHosts(RoutingInstance ri) {
         if ("VPLS".equals(ri.getType())) {
             return ri.getHosts().stream()
-                    .sorted(Comparator.comparingInt(h -> {
+                    .sorted(Comparator.comparingInt((String h) -> {
                         int colon = h.indexOf(':');
                         if (colon < 0) return 0;
                         String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
                         return num.isEmpty() ? 0 : Integer.parseInt(num);
-                    }))
+                    }).thenComparing(Comparator.naturalOrder()))
                     .collect(Collectors.toList());
         }
         return ri.getHosts().stream().sorted().collect(Collectors.toList());
