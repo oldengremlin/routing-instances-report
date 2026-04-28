@@ -6,6 +6,7 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
+import java.util.stream.*;
 
 @Log4j2
 public class ReportGenerator {
@@ -76,11 +77,12 @@ public class ReportGenerator {
 
         instances.values().forEach(ri -> {
             num[0]++;
+            List<String> hosts = sortedHosts(ri);
             log.info("[{}] {} {} {}",
                     String.format("%-4s", ri.getType()),
                     String.format("%-50s", ri.getName()),
                     ri.getRd(),
-                    String.join(", ", ri.getHosts()));
+                    String.join(", ", hosts));
 
             sb.append(String.format(
                     sp + "<tr>"
@@ -94,9 +96,23 @@ public class ReportGenerator {
                     ri.getType(),
                     ri.getHrefname(), ri.getName(),
                     ri.getName(), ri.getRd(),
-                    String.join(", ", ri.getHosts())));
+                    String.join(", ", hosts)));
         });
         return sb.toString();
+    }
+
+    private static List<String> sortedHosts(RoutingInstance ri) {
+        if (!"VPLS".equals(ri.getType())) {
+            return ri.getHosts();
+        }
+        return ri.getHosts().stream()
+                .sorted(Comparator.comparingInt(h -> {
+                    int colon = h.indexOf(':');
+                    if (colon < 0) return 0;
+                    String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
+                    return num.isEmpty() ? 0 : Integer.parseInt(num);
+                }))
+                .collect(Collectors.toList());
     }
 
     private static String buildPostBr(int count) {
