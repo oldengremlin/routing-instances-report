@@ -1,10 +1,13 @@
 package net.ukrhub.routing.instances.report;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
 
+@Log4j2
 public class ReportGenerator {
 
     private static final String HTML_TEMPLATE = """
@@ -36,10 +39,12 @@ public class ReportGenerator {
                 .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances)  + "\t    <!--VRFVPLSINFO-->")
                 .replace("    <!--VRFVPPOSTBR-->",  buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
+        log.info("Writing report to {} ({} entries)", outputPath, instances.size());
         try (PrintWriter pw = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8))) {
             pw.print(html);
         }
+        log.info("Report written: {}", outputPath);
     }
 
     private static String buildVrfList(Map<String, Map<String, String>> vrfVplsList) {
@@ -71,8 +76,10 @@ public class ReportGenerator {
 
         instances.values().forEach(ri -> {
             num[0]++;
-            System.out.printf("[%-4s] %-50s %s %s%n",
-                    ri.getType(), ri.getName(), ri.getRd(),
+            log.info("[{}] {} {} {}",
+                    String.format("%-4s", ri.getType()),
+                    String.format("%-50s", ri.getName()),
+                    ri.getRd(),
                     String.join(", ", ri.getHosts()));
 
             sb.append(String.format(

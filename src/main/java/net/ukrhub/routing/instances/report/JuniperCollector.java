@@ -1,6 +1,7 @@
 package net.ukrhub.routing.instances.report;
 
 import com.jcraft.jsch.*;
+import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
 import javax.xml.parsers.*;
 import javax.xml.xpath.*;
@@ -13,6 +14,7 @@ import java.util.*;
  * Collects routing instances from Juniper routers via NETCONF over SSH.
  * Uses NETCONF 1.0 framing (]]>]]> delimiter).
  */
+@Log4j2
 public class JuniperCollector {
 
     private static final String NETCONF_HELLO =
@@ -47,8 +49,9 @@ public class JuniperCollector {
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         String xmlResponse = fetchNetconf(hostname);
 
-        Files.writeString(Path.of("/tmp/juniper-" + hostname + ".xml"),
-                xmlResponse, StandardCharsets.UTF_8);
+        Path dumpFile = Path.of("/tmp/juniper-" + hostname + ".xml");
+        Files.writeString(dumpFile, xmlResponse, StandardCharsets.UTF_8);
+        log.debug("Configuration saved to {}", dumpFile);
 
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(false);
@@ -79,9 +82,12 @@ public class JuniperCollector {
 
             merge(instances, vrfVplsList, name, type, rd, hostEntry);
         }
+
+        log.info("Parsed {} routing instances from {}", riNodes.getLength(), hostname);
     }
 
     private String fetchNetconf(String hostname) throws Exception {
+        log.info("Connecting to {} via NETCONF/SSH", hostname);
         JSch jsch = new JSch();
         Session session = jsch.getSession(login, hostname, 22);
         session.setPassword(pass);
@@ -96,6 +102,7 @@ public class JuniperCollector {
         OutputStream out = channel.getOutputStream();
         InputStream  in  = channel.getInputStream();
         channel.connect(15_000);
+        log.debug("NETCONF session established: {}", hostname);
 
         readUntilDelimiter(in);       // consume server hello
         send(out, NETCONF_HELLO);
@@ -105,6 +112,7 @@ public class JuniperCollector {
 
         channel.disconnect();
         session.disconnect();
+        log.debug("NETCONF session closed: {}", hostname);
         return response;
     }
 
@@ -139,6 +147,7 @@ public class JuniperCollector {
         ri.setRd(rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd));
         ri.setHrefname(ri.getRd().replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
         ri.getHosts().add(hostEntry);
+        log.debug("Merge: [{}] {} {} @ {}", ri.getType(), name, ri.getRd().strip(), hostEntry);
 
         if (ri.getRd().contains("RD:")) {
             vrfVplsList.computeIfAbsent(ri.getRd(), k -> new LinkedHashMap<>())

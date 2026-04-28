@@ -1,6 +1,7 @@
 package net.ukrhub.routing.instances.report;
 
 import com.jcraft.jsch.*;
+import lombok.extern.log4j.Log4j2;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +12,7 @@ import java.util.regex.*;
  * Collects VRF definitions from MikroTik RouterOS via SSH.
  * Executes "/ip route vrf export compact" and parses continuation-line output.
  */
+@Log4j2
 public class RouterOSCollector {
 
     private final String login;
@@ -23,6 +25,7 @@ public class RouterOSCollector {
 
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
+        log.info("Connecting to {} via SSH", hostname);
         JSch jsch = new JSch();
         Session session = jsch.getSession(login, hostname, 22);
         session.setPassword(pass);
@@ -31,6 +34,7 @@ public class RouterOSCollector {
         cfg.put("PreferredAuthentications", "password,keyboard-interactive");
         session.setConfig(cfg);
         session.connect(30_000);
+        log.debug("SSH session established: {}", hostname);
 
         ChannelExec channel = (ChannelExec) session.openChannel("exec");
         channel.setCommand("/ip route vrf export compact");
@@ -44,8 +48,10 @@ public class RouterOSCollector {
         channel.disconnect();
         session.disconnect();
 
+        int before = instances.size();
         parseConfig(hostname, baos.toString(StandardCharsets.UTF_8).split("\r?\n"),
                 instances, vrfVplsList);
+        log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
     }
 
     private void parseConfig(String hostname, String[] lines,

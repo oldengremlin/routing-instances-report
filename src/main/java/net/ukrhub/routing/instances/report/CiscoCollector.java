@@ -1,5 +1,6 @@
 package net.ukrhub.routing.instances.report;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.net.telnet.TelnetClient;
 
 import java.io.*;
@@ -12,6 +13,7 @@ import java.util.regex.*;
  * Collects VRF definitions from Cisco IOS routers via Telnet.
  * Parses "show running-config" for "ip vrf NAME / rd X:Y" blocks.
  */
+@Log4j2
 public class CiscoCollector {
 
     private static final int TIMEOUT_MS = 60_000;
@@ -28,6 +30,7 @@ public class CiscoCollector {
 
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
+        log.info("Connecting to {} via Telnet", hostname);
         TelnetClient telnet = new TelnetClient();
         telnet.setConnectTimeout(TIMEOUT_MS);
         telnet.connect(hostname, 23);
@@ -45,6 +48,7 @@ public class CiscoCollector {
         readUntil(in, "Password:");
         out.println(enablePass);
         readUntil(in, "#");
+        log.debug("Telnet session established: {}", hostname);
         out.println("terminal length 0");
         readUntil(in, "#");
         out.println("show running-config");
@@ -52,10 +56,13 @@ public class CiscoCollector {
         out.println("exit");
         telnet.disconnect();
 
-        Files.writeString(Path.of("/tmp/cisco-" + hostname + ".conf"),
-                runningConfig, StandardCharsets.UTF_8);
+        Path dumpFile = Path.of("/tmp/cisco-" + hostname + ".conf");
+        Files.writeString(dumpFile, runningConfig, StandardCharsets.UTF_8);
+        log.debug("Configuration saved to {}", dumpFile);
 
+        int before = instances.size();
         parseConfig(hostname, runningConfig.split("\r?\n"), instances, vrfVplsList);
+        log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
     }
 
     private String readUntil(InputStream in, String target) throws IOException {

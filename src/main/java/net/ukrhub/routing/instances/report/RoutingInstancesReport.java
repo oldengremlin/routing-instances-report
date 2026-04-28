@@ -1,5 +1,7 @@
 package net.ukrhub.routing.instances.report;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.util.*;
 
 /**
@@ -13,6 +15,7 @@ import java.util.*;
  *   ROUTEROS_HOSTS   – comma-separated hostnames  (default: empty)
  *   REPORT_PATH      – output HTML file path      (default: /usr/share/nginx/html/index.html)
  */
+@Log4j2
 public class RoutingInstancesReport {
 
     public static void main(String[] args) throws Exception {
@@ -25,42 +28,36 @@ public class RoutingInstancesReport {
         List<String> ciscoHosts    = parseList(env("CISCO_HOSTS",    ""));
         List<String> routerosHosts = parseList(env("ROUTEROS_HOSTS", ""));
 
+        log.info("Starting collection — Juniper: {}, Cisco: {}, RouterOS: {}",
+                juniperHosts, ciscoHosts, routerosHosts);
+
         Map<String, RoutingInstance>     instances   = new TreeMap<>();
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
-        List<String> analyzed = new ArrayList<>();
 
         JuniperCollector  juniper  = new JuniperCollector(login, pass);
         CiscoCollector    cisco    = new CiscoCollector(login, pass, ciscoEnable);
         RouterOSCollector routeros = new RouterOSCollector(login, pass);
 
         for (String host : juniperHosts) {
-            analyzed.add(host);
-            progress(analyzed);
+            log.info("Collecting from Juniper: {}", host);
             try { juniper.collect(host, instances, vrfVplsList); }
-            catch (Exception e) { System.err.printf("ERROR Juniper %s: %s%n", host, e.getMessage()); }
+            catch (Exception e) { log.error("Juniper {} failed: {}", host, e.getMessage(), e); }
         }
 
         for (String host : ciscoHosts) {
-            analyzed.add(host);
-            progress(analyzed);
+            log.info("Collecting from Cisco: {}", host);
             try { cisco.collect(host, instances, vrfVplsList); }
-            catch (Exception e) { System.err.printf("ERROR Cisco %s: %s%n", host, e.getMessage()); }
+            catch (Exception e) { log.error("Cisco {} failed: {}", host, e.getMessage(), e); }
         }
 
         for (String host : routerosHosts) {
-            analyzed.add(host);
-            progress(analyzed);
+            log.info("Collecting from RouterOS: {}", host);
             try { routeros.collect(host, instances, vrfVplsList); }
-            catch (Exception e) { System.err.printf("ERROR RouterOS %s: %s%n", host, e.getMessage()); }
+            catch (Exception e) { log.error("RouterOS {} failed: {}", host, e.getMessage(), e); }
         }
 
-        System.out.println();
+        log.info("Collection complete: {} instances total", instances.size());
         ReportGenerator.generate(instances, vrfVplsList, reportPath);
-    }
-
-    private static void progress(List<String> analyzed) {
-        System.out.printf("Analyze: %s\r", String.join(", ", analyzed));
-        System.out.flush();
     }
 
     private static String require(String name) {
