@@ -102,17 +102,17 @@ public class ReportGenerator {
     }
 
     private static List<String> sortedHosts(RoutingInstance ri) {
-        if (!"VPLS".equals(ri.getType())) {
-            return ri.getHosts();
+        if ("VPLS".equals(ri.getType())) {
+            return ri.getHosts().stream()
+                    .sorted(Comparator.comparingInt(h -> {
+                        int colon = h.indexOf(':');
+                        if (colon < 0) return 0;
+                        String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
+                        return num.isEmpty() ? 0 : Integer.parseInt(num);
+                    }))
+                    .collect(Collectors.toList());
         }
-        return ri.getHosts().stream()
-                .sorted(Comparator.comparingInt(h -> {
-                    int colon = h.indexOf(':');
-                    if (colon < 0) return 0;
-                    String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
-                    return num.isEmpty() ? 0 : Integer.parseInt(num);
-                }))
-                .collect(Collectors.toList());
+        return ri.getHosts().stream().sorted().collect(Collectors.toList());
     }
 
     private static String buildPostBr(int count) {
