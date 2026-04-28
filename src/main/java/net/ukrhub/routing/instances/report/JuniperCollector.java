@@ -15,33 +15,35 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Collects routing instances from Juniper routers via NETCONF over SSH.
- * Uses NETCONF 1.0 framing (]]>]]> delimiter).
+ * Collects routing instances from Juniper routers via NETCONF over SSH. Uses
+ * NETCONF 1.0 framing (]]>]]> delimiter).
  */
 @Log4j2
 public class JuniperCollector {
 
-    private static final String NETCONF_HELLO =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n" +
-            "  <capabilities>\n" +
-            "    <capability>urn:ietf:params:netconf:base:1.0</capability>\n" +
-            "  </capabilities>\n" +
-            "</hello>\n]]>]]>";
-
-    private static final String GET_CONFIG_RPC =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-            "<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"1\">\n" +
-            "  <get-config>\n" +
-            "    <source><running/></source>\n" +
-            "  </get-config>\n" +
-            "</rpc>\n]]>]]>";
-
-    private static final String CLOSE_SESSION_RPC =
-            "<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"2\">" +
-            "<close-session/></rpc>]]>]]>";
-
     private static final String DELIM = "]]>]]>";
+    private static final String NETCONF_HELLO
+            = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+              <capabilities>
+                <capability>urn:ietf:params:netconf:base:1.0</capability>
+              </capabilities>
+            </hello>""".concat(DELIM);
+
+    private static final String GET_CONFIG_RPC
+            = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">
+              <get-config>
+                <source><running/></source>
+              </get-config>
+            </rpc>""".concat(DELIM);
+
+    private static final String CLOSE_SESSION_RPC
+            = """
+            <rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">
+            <close-session/></rpc>""".concat(DELIM);
 
     private final String login;
     private final String pass;
@@ -49,7 +51,7 @@ public class JuniperCollector {
 
     public JuniperCollector(String login, String pass) {
         this.login = login;
-        this.pass  = pass;
+        this.pass = pass;
     }
 
     public void collect(String hostname, Map<String, RoutingInstance> instances,
@@ -73,9 +75,9 @@ public class JuniperCollector {
         for (int i = 0; i < riNodes.getLength(); i++) {
             Node ri = riNodes.item(i);
 
-            String name     = xp.evaluate("name/text()", ri).trim();
-            String type     = xp.evaluate("instance-type/text()", ri).trim();
-            String rd       = xp.evaluate("route-distinguisher/rd-type/text()", ri).trim();
+            String name = xp.evaluate("name/text()", ri).trim();
+            String type = xp.evaluate("instance-type/text()", ri).trim();
+            String rd = xp.evaluate("route-distinguisher/rd-type/text()", ri).trim();
             String inactive = (ri instanceof Element e) ? e.getAttribute("inactive") : "";
 
             String siteId = "";
@@ -84,8 +86,8 @@ public class JuniperCollector {
             }
 
             String hostEntry = hostname.toUpperCase()
-                    + (!siteId.isEmpty()          ? ":" + siteId : "")
-                    + ("inactive".equals(inactive) ? "(-)"       : "");
+                    + (!siteId.isEmpty() ? ":" + siteId : "")
+                    + ("inactive".equals(inactive) ? "(-)" : "");
 
             merge(instances, vrfVplsList, name, type, rd, hostEntry);
         }
@@ -106,24 +108,26 @@ public class JuniperCollector {
         session.connect(30_000);
 
         String mode = System.getenv("OPENCHANNEL");
-        if (mode == null || mode.isBlank()) mode = "subsystem-netconf";
+        if (mode == null || mode.isBlank()) {
+            mode = "subsystem-netconf";
+        }
 
-        Channel      channel;
+        Channel channel;
         OutputStream out;
-        InputStream  in;
+        InputStream in;
 
         if ("exec".equals(mode)) {
             ChannelExec exec = (ChannelExec) session.openChannel("exec");
             exec.setCommand("xml-mode netconf need-trailer");
-            out     = exec.getOutputStream();
-            in      = exec.getInputStream();
+            out = exec.getOutputStream();
+            in = exec.getInputStream();
             exec.connect(15_000);
             channel = exec;
         } else {
             ChannelSubsystem sub = (ChannelSubsystem) session.openChannel("subsystem");
             sub.setSubsystem("netconf");
-            out     = sub.getOutputStream();
-            in      = sub.getInputStream();
+            out = sub.getOutputStream();
+            in = sub.getInputStream();
             sub.connect(15_000);
             channel = sub;
         }
@@ -155,7 +159,9 @@ public class JuniperCollector {
         int idx = sb.indexOf(DELIM);
         while (idx < 0) {
             int n = in.read(buf);
-            if (n == -1) break;
+            if (n == -1) {
+                break;
+            }
             sb.append(new String(buf, 0, n, StandardCharsets.UTF_8));
             idx = sb.indexOf(DELIM);
         }
@@ -171,7 +177,7 @@ public class JuniperCollector {
                       Map<String, Map<String, String>> vrfVplsList,
                       String name, String type, String rd, String hostEntry) {
         String padded = String.format("%-50s", name);
-        String key    = HashUtils.computeKey(padded, type);
+        String key = HashUtils.computeKey(padded, type);
 
         RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
         ri.setName(name);
@@ -183,7 +189,7 @@ public class JuniperCollector {
 
         if (ri.getRd().contains("RD:")) {
             vrfVplsList.computeIfAbsent(ri.getRd(), k -> new LinkedHashMap<>())
-                       .putIfAbsent("name", ri.getName());
+                    .putIfAbsent("name", ri.getName());
             vrfVplsList.get(ri.getRd()).put("href", ri.getHrefname());
         }
     }
