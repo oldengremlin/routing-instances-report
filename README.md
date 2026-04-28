@@ -17,16 +17,16 @@ see the full picture.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Docker container                                    │
-│                                                      │
+│  Docker container                                   │
+│                                                     │
 │  ┌──────────────────────────┐   ┌─────────────────┐ │
 │  │  routing-instances-report│   │      nginx      │ │
 │  │  (Java, runs once/day)   │──▶│  serves HTML    │ │
 │  │                          │   │  on port 80     │ │
 │  │  Juniper  ← NETCONF/SSH  │   └─────────────────┘ │
-│  │  Cisco    ← Telnet       │                        │
-│  │  RouterOS ← SSH exec     │                        │
-│  └──────────────────────────┘                        │
+│  │  Cisco    ← Telnet       │                       │
+│  │  RouterOS ← SSH exec     │                       │
+│  └──────────────────────────┘                       │
 └─────────────────────────────────────────────────────┘
 ```
 

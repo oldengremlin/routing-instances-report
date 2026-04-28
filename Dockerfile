@@ -13,8 +13,8 @@ FROM eclipse-temurin:21-jre-noble AS jre-provider
 FROM nginx:mainline
 LABEL maintainer="Alexander Russkih <olden@ukr-com.net>"
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends locales locales-all && \
+RUN apt update && \
+    apt install -y --no-install-recommends locales locales-all && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=jre-provider /opt/java/openjdk /opt/java/openjdk
