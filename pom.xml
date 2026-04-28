@@ -11,7 +11,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>25</maven.compiler.release>
+        <maven.compiler.release>21</maven.compiler.release>
         <exec.mainClass>net.ukrhub.routing.instances.report.RoutingInstancesReport</exec.mainClass>
         <lombok.version>1.18.42</lombok.version>
         <log4j.version>2.25.3</log4j.version>
