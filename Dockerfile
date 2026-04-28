@@ -1,6 +1,5 @@
 # Stage 1: build fat JAR
-FROM eclipse-temurin:25-jdk-noble AS builder
-RUN apt update && apt install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*
+FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /build
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
@@ -8,7 +7,7 @@ COPY src ./src
 RUN mvn -q package -DskipTests
 
 # Stage 2: slim JRE layer (copy from Temurin image)
-FROM eclipse-temurin:25-jre-noble AS jre-provider
+FROM eclipse-temurin:21-jre-noble AS jre-provider
 
 # Stage 3: nginx + JRE runtime
 FROM nginx:mainline
@@ -42,5 +41,6 @@ ENV TZ=Europe/Kiev
 #   CISCO_HOSTS         (comma-separated)
 #   ROUTEROS_HOSTS      (comma-separated)
 #   REPORT_PATH         (default: /usr/share/nginx/html/index.html)
+#   LOG_LEVEL           (default: info)
 
 EXPOSE 80
