@@ -32,12 +32,12 @@ public class ReportGenerator {
 """;
 
     public static void generate(Map<String, RoutingInstance> instances,
-                                 Map<String, Map<String, String>> vrfVplsList,
-                                 String outputPath) throws IOException {
+                                Map<String, Map<String, String>> vrfVplsList,
+                                String outputPath) throws IOException {
         String html = HTML_TEMPLATE
-                .replace("    <!--VRFVPLSLIST-->",  buildVrfList(vrfVplsList) + "    <!--VRFVPLSLIST-->")
-                .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances)  + "\t    <!--VRFVPLSINFO-->")
-                .replace("    <!--VRFVPPOSTBR-->",  buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
+                .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + "    <!--VRFVPLSLIST-->")
+                .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances) + "\t    <!--VRFVPLSINFO-->")
+                .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         log.info("Writing report to {} ({} entries)", outputPath, instances.size());
         try (PrintWriter pw = new PrintWriter(
@@ -57,7 +57,7 @@ public class ReportGenerator {
                     return m.find() ? Long.parseLong(m.group(1)) * Long.parseLong(m.group(2)) : 0L;
                 }))
                 .forEach(e -> {
-                    String rdl  = e.getKey().replaceAll("\\s", "");
+                    String rdl = e.getKey().replaceAll("\\s", "");
                     String name = e.getValue().get("name");
                     String href = e.getValue().get("href");
                     sb.append(String.format(
@@ -70,7 +70,7 @@ public class ReportGenerator {
     }
 
     private static String buildVrfInfo(Map<String, RoutingInstance> instances) {
-        StringBuilder sb  = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         String sp = "\t    ";
         int[] num = {0};
 
@@ -83,17 +83,17 @@ public class ReportGenerator {
                     String.join(", ", ri.getHosts()));
 
             sb.append(String.format(
-                    sp + "<tr>" +
-                    "<td style=\"vertical-align: top; text-align: right;\">%d</td>" +
-                    "<td style=\"vertical-align: top;\">%s</td>" +
-                    "<td style=\"vertical-align: top;\"><a name=\"%s\" />%s</td>" +
-                    "<td style=\"vertical-align: top;\"><a href=\"#%s\">%s</a></td>" +
-                    "<td style=\"vertical-align: top;\">%s</td>" +
-                    "</tr>\n",
+                    sp + "<tr>"
+                    + "<td style=\"vertical-align: top; text-align: right;\">%d</td>"
+                    + "<td style=\"vertical-align: top;\">%s</td>"
+                    + "<td style=\"vertical-align: top;\"><a name=\"%s\" />%s</td>"
+                    + "<td style=\"vertical-align: top;\"><a href=\"#%s\">%s</a></td>"
+                    + "<td style=\"vertical-align: top;\">%s</td>"
+                    + "</tr>\n",
                     num[0],
                     ri.getType(),
                     ri.getHrefname(), ri.getName(),
-                    ri.getName(),     ri.getRd(),
+                    ri.getName(), ri.getRd(),
                     String.join(", ", ri.getHosts())));
         });
         return sb.toString();

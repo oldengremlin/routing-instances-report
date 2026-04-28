@@ -9,8 +9,8 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Collects VRF definitions from MikroTik RouterOS via SSH.
- * Executes "/ip route vrf export compact" and parses continuation-line output.
+ * Collects VRF definitions from MikroTik RouterOS via SSH. Executes "/ip route
+ * vrf export compact" and parses continuation-line output.
  */
 @Log4j2
 public class RouterOSCollector {
@@ -20,7 +20,7 @@ public class RouterOSCollector {
 
     public RouterOSCollector(String login, String pass) {
         this.login = login;
-        this.pass  = pass;
+        this.pass = pass;
     }
 
     public void collect(String hostname, Map<String, RoutingInstance> instances,
@@ -44,7 +44,9 @@ public class RouterOSCollector {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] buf = new byte[4096];
         int n;
-        while ((n = in.read(buf)) != -1) baos.write(buf, 0, n);
+        while ((n = in.read(buf)) != -1) {
+            baos.write(buf, 0, n);
+        }
         channel.disconnect();
         session.disconnect();
 
@@ -55,21 +57,23 @@ public class RouterOSCollector {
     }
 
     private void parseConfig(String hostname, String[] lines,
-                              Map<String, RoutingInstance> instances,
-                              Map<String, Map<String, String>> vrfVplsList) {
+                             Map<String, RoutingInstance> instances,
+                             Map<String, Map<String, String>> vrfVplsList) {
         Pattern vrfPat = Pattern.compile(
                 "/ip route vrf add .+ route-distinguisher=([^ ]+) routing-mark=(.+)");
 
         String csect = "";
-        String cstr  = "";
+        String cstr = "";
 
         for (String rawLine : lines) {
             String s = rawLine.trim();
-            if (s.startsWith("#") || s.isEmpty()) continue;
+            if (s.startsWith("#") || s.isEmpty()) {
+                continue;
+            }
 
             if (s.contains("/") && !s.endsWith("\\")) {
                 csect = s + " ";
-                cstr  = csect;
+                cstr = csect;
             } else if (s.endsWith("\\")) {
                 cstr += s.replaceAll("\\\\\\s*$", "");
             } else {

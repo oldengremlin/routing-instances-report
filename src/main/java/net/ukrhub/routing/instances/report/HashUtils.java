@@ -20,7 +20,9 @@ public class HashUtils {
             byte[] bytes = MessageDigest.getInstance(algorithm)
                     .digest(input.getBytes(StandardCharsets.UTF_8));
             StringBuilder sb = new StringBuilder(bytes.length * 2);
-            for (byte b : bytes) sb.append(String.format("%02x", b));
+            for (byte b : bytes) {
+                sb.append(String.format("%02x", b));
+            }
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);

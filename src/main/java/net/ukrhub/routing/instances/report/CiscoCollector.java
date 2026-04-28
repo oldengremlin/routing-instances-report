@@ -10,8 +10,8 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Collects VRF definitions from Cisco IOS routers via Telnet.
- * Parses "show running-config" for "ip vrf NAME / rd X:Y" blocks.
+ * Collects VRF definitions from Cisco IOS routers via Telnet. Parses "show
+ * running-config" for "ip vrf NAME / rd X:Y" blocks.
  */
 @Log4j2
 public class CiscoCollector {
@@ -23,8 +23,8 @@ public class CiscoCollector {
     private final String enablePass;
 
     public CiscoCollector(String login, String pass, String enablePass) {
-        this.login      = login;
-        this.pass       = pass;
+        this.login = login;
+        this.pass = pass;
         this.enablePass = enablePass;
     }
 
@@ -36,7 +36,7 @@ public class CiscoCollector {
         telnet.connect(hostname, 23);
         telnet.setSoTimeout(TIMEOUT_MS);
 
-        InputStream in  = telnet.getInputStream();
+        InputStream in = telnet.getInputStream();
         PrintStream out = new PrintStream(telnet.getOutputStream(), true, StandardCharsets.UTF_8);
 
         readUntil(in, "Username:");
@@ -75,31 +75,37 @@ public class CiscoCollector {
                 int n = in.read(buf);
                 if (n > 0) {
                     sb.append(new String(buf, 0, n, StandardCharsets.UTF_8));
-                    if (sb.toString().contains(target)) return sb.toString();
+                    if (sb.toString().contains(target)) {
+                        return sb.toString();
+                    }
                 }
             } else {
-                try { Thread.sleep(50); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
         throw new IOException("Timeout waiting for '" + target + "'");
     }
 
     private void parseConfig(String hostname, String[] lines,
-                              Map<String, RoutingInstance> instances,
-                              Map<String, Map<String, String>> vrfVplsList) {
+                             Map<String, RoutingInstance> instances,
+                             Map<String, Map<String, String>> vrfVplsList) {
         Pattern vrfPat = Pattern.compile("^ip\\s+vrf\\s+(.+)");
-        Pattern rdPat  = Pattern.compile("^\\s+rd\\s+(.+)");
+        Pattern rdPat = Pattern.compile("^\\s+rd\\s+(.+)");
 
         String instance = "";
-        String rd       = "";
+        String rd = "";
 
         for (String s : lines) {
             Matcher mVrf = vrfPat.matcher(s);
-            Matcher mRd  = rdPat.matcher(s);
+            Matcher mRd = rdPat.matcher(s);
 
             if (mVrf.matches()) {
                 instance = mVrf.group(1).trim();
-                rd       = "";
+                rd = "";
             } else if (mRd.matches() && !instance.isEmpty()) {
                 rd = mRd.group(1).trim();
             }
@@ -108,7 +114,7 @@ public class CiscoCollector {
                 JuniperCollector.merge(instances, vrfVplsList,
                         instance, "vrf", rd, hostname.toUpperCase());
                 instance = "";
-                rd       = "";
+                rd = "";
             }
         }
     }

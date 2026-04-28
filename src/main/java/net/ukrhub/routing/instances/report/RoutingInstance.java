@@ -9,6 +9,7 @@ import java.util.List;
 @Data
 @Accessors(chain = true)
 public class RoutingInstance {
+
     private String name;
     private String type;
     private String rd;

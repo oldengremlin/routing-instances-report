@@ -181,10 +181,12 @@ public class JuniperCollector {
 
         RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
         String rdStr = rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd);
-        ri.setName(name)
-          .setType(type.toUpperCase())
-          .setRd(rdStr)
-          .setHrefname(rdStr.replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
+        ri
+                .setName(name)
+                .setType(type.toUpperCase())
+                .setRd(rdStr)
+                .setHrefname(rdStr.replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
+
         ri.getHosts().add(hostEntry);
         log.debug("Merge: [{}] {} {} @ {}", ri.getType(), name, ri.getRd().strip(), hostEntry);
 
