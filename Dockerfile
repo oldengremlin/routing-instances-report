@@ -42,5 +42,6 @@ ENV TZ=Europe/Kiev
 #   ROUTEROS_HOSTS      (comma-separated)
 #   REPORT_PATH         (default: /usr/share/nginx/html/index.html)
 #   LOG_LEVEL           (default: info)
+#   OPENCHANNEL         (default: subsystem-netconf | exec)
 
 EXPOSE 80

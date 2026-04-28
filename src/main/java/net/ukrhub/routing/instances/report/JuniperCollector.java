@@ -1,6 +1,10 @@
 package net.ukrhub.routing.instances.report;
 
-import com.jcraft.jsch.*;
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelExec;
+import com.jcraft.jsch.ChannelSubsystem;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
 import javax.xml.parsers.*;
@@ -101,12 +105,29 @@ public class JuniperCollector {
         session.setConfig(cfg);
         session.connect(30_000);
 
-        ChannelSubsystem channel = (ChannelSubsystem) session.openChannel("subsystem");
-        channel.setSubsystem("netconf");
-        OutputStream out = channel.getOutputStream();
-        InputStream  in  = channel.getInputStream();
-        channel.connect(15_000);
-        log.debug("NETCONF session established: {}", hostname);
+        String mode = System.getenv("OPENCHANNEL");
+        if (mode == null || mode.isBlank()) mode = "subsystem-netconf";
+
+        Channel      channel;
+        OutputStream out;
+        InputStream  in;
+
+        if ("exec".equals(mode)) {
+            ChannelExec exec = (ChannelExec) session.openChannel("exec");
+            exec.setCommand("xml-mode netconf need-trailer");
+            out     = exec.getOutputStream();
+            in      = exec.getInputStream();
+            exec.connect(15_000);
+            channel = exec;
+        } else {
+            ChannelSubsystem sub = (ChannelSubsystem) session.openChannel("subsystem");
+            sub.setSubsystem("netconf");
+            out     = sub.getOutputStream();
+            in      = sub.getInputStream();
+            sub.connect(15_000);
+            channel = sub;
+        }
+        log.debug("NETCONF channel ({}) established: {}", mode, hostname);
 
         readUntilDelimiter(in);       // consume server hello
         send(out, NETCONF_HELLO);
