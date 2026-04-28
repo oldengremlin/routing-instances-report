@@ -146,6 +146,7 @@ routing-instances-report/
 | `ROUTEROS_HOSTS` | no       | Comma-separated MikroTik hostnames |
 | `REPORT_PATH`   | no       | Output HTML path (default: `/usr/share/nginx/html/index.html`) |
 | `LOG_LEVEL`     | no       | Log4j2 level: `trace` `debug` `info` `warn` `error` (default: `info`) |
+| `OPENCHANNEL`   | no       | Juniper SSH channel type: `subsystem-netconf` (default) or `exec` |
 
 ## Building
 
