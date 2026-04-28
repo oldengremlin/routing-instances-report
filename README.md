@@ -118,20 +118,20 @@ environment:
 
 ```
 routing-instances-report/
-├── Dockerfile                          multi-stage build (JDK 25 → nginx + JRE 25)
-├── pom.xml                             Maven build (fat JAR via maven-shade-plugin)
+├── Dockerfile                           multi-stage build (JDK 21 → nginx + JRE 21)
+├── pom.xml                              Maven build (fat JAR via maven-shade-plugin)
 ├── bin/
-│   └── routing-instances-report.sh    daily loop wrapper (runs JAR, sleeps 24 h)
+│   └── routing-instances-report.sh     daily loop wrapper (runs JAR, sleeps 24 h)
 ├── docker-entrypoint.d/
-│   └── 40-routing-instances-report.sh launched by nginx entrypoint in background
+│   └── 40-routing-instances-report.sh  launched by nginx entrypoint in background
 └── src/main/java/net/ukrhub/routing/instances/report/
-    ├── RoutingInstancesReport.java     main class — reads env vars, drives collection
-    ├── RoutingInstance.java            data model (@Data Lombok)
-    ├── HashUtils.java                  MD5 + SHA-1 composite key (Perl-compatible)
-    ├── JuniperCollector.java           NETCONF over SSH collector
-    ├── CiscoCollector.java             Telnet collector
-    ├── RouterOSCollector.java          SSH exec collector
-    └── ReportGenerator.java           HTML report writer
+    ├── RoutingInstancesReport.java      main class — reads env vars, drives collection
+    ├── RoutingInstance.java             data model (@Data Lombok)
+    ├── HashUtils.java                   MD5 + SHA-1 composite key (Perl-compatible)
+    ├── JuniperCollector.java            NETCONF over SSH collector
+    ├── CiscoCollector.java              Telnet collector
+    ├── RouterOSCollector.java           SSH exec collector
+    └── ReportGenerator.java             HTML report writer
 ```
 
 ## Environment variables
@@ -143,7 +143,7 @@ routing-instances-report/
 | `CISCO_ENABLE`  | if Cisco | Cisco enable (privileged) password |
 | `JUNIPER_HOSTS` | no       | Comma-separated Juniper hostnames |
 | `CISCO_HOSTS`   | no       | Comma-separated Cisco hostnames |
-| `ROUTEROS_HOSTS`| no       | Comma-separated MikroTik hostnames |
+| `ROUTEROS_HOSTS` | no       | Comma-separated MikroTik hostnames |
 | `REPORT_PATH`   | no       | Output HTML path (default: `/usr/share/nginx/html/index.html`) |
 | `LOG_LEVEL`     | no       | Log4j2 level: `trace` `debug` `info` `warn` `error` (default: `info`) |
 
