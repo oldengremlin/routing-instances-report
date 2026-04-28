@@ -52,6 +52,68 @@ The resulting HTML contains two sections:
 The raw XML/config dumps saved to `/tmp/juniper-<host>.xml` and
 `/tmp/cisco-<host>.conf` are useful for debugging.
 
+## Logging
+
+The application uses [Log4j2](https://logging.apache.org/log4j/2.x/) (via Lombok `@Log4j2`).
+All output goes to **stdout** so Docker captures it with `docker logs`.
+
+### Log levels
+
+| Level   | What is logged |
+|---------|----------------|
+| `INFO`  | Startup host list · connecting to each router · parsed instance count · every row of the final table · report file path |
+| `DEBUG` | NETCONF session open/close · SSH/Telnet session established · every individual `merge` (name / type / RD / router) · dump file paths (`/tmp/juniper-*.xml`, `/tmp/cisco-*.conf`) |
+| `WARN`  | Minimum level for JSch SSH messages (hardcoded — avoids SSH negotiation noise regardless of `LOG_LEVEL`) |
+
+### Controlling the log level
+
+Set the `LOG_LEVEL` environment variable to any Log4j2 level name
+(`trace`, `debug`, `info`, `warn`, `error`). Default is `info`.
+
+#### Local one-shot run
+
+```bash
+LOG_LEVEL=debug java -jar target/routing-instances-report-1.0.jar
+```
+
+#### docker run — foreground (one-shot, useful for troubleshooting a single router)
+
+```bash
+docker run --rm \
+  -e ROUTER_USER=username \
+  -e ROUTER_PASS=password4username \
+  -e CISCO_ENABLE=password4enable \
+  -e JUNIPER_HOSTS="r560-1" \
+  -e LOG_LEVEL=debug \
+  --entrypoint java \
+  routing-instances-report \
+  -jar /usr/local/bin/routing-instances-report.jar
+```
+
+#### docker run — background container with DEBUG, then follow logs
+
+```bash
+docker run -d \
+  --name routing-report \
+  -p 80:80 \
+  -e ROUTER_USER=username \
+  -e ROUTER_PASS=password4username \
+  -e CISCO_ENABLE=password4enable \
+  -e JUNIPER_HOSTS="r560-1,rhoh15-1,r234-1,r201-1,r525-1,r559-1,r540-1,r418-1,rf102z-1,rdc-1" \
+  -e CISCO_HOSTS="rdnepr-1" \
+  -e LOG_LEVEL=debug \
+  routing-instances-report
+
+docker logs -f routing-report
+```
+
+#### docker-compose — add one line to the environment block
+
+```yaml
+environment:
+  LOG_LEVEL: debug
+```
+
 ## Project structure
 
 ```
@@ -83,6 +145,7 @@ routing-instances-report/
 | `CISCO_HOSTS`   | no       | Comma-separated Cisco hostnames |
 | `ROUTEROS_HOSTS`| no       | Comma-separated MikroTik hostnames |
 | `REPORT_PATH`   | no       | Output HTML path (default: `/usr/share/nginx/html/index.html`) |
+| `LOG_LEVEL`     | no       | Log4j2 level: `trace` `debug` `info` `warn` `error` (default: `info`) |
 
 ## Building
 
@@ -131,6 +194,7 @@ services:
       CISCO_ENABLE:  password4enable
       JUNIPER_HOSTS: "r560-1,rhoh15-1,r234-1,r201-1,r525-1,r559-1,r540-1,r418-1,rf102z-1,rdc-1"
       CISCO_HOSTS:   "rdnepr-1"
+      # LOG_LEVEL: debug
 ```
 
 ## Dependencies
