@@ -13,7 +13,7 @@ import java.util.regex.*;
  * vrf export compact" and parses continuation-line output.
  */
 @Log4j2
-public class RouterOSCollector {
+public class RouterOSCollector implements Collector {
 
     private final String login;
     private final String pass;

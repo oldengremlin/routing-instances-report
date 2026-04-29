@@ -14,7 +14,7 @@ import java.util.regex.*;
  * running-config" for "ip vrf NAME / rd X:Y" blocks.
  */
 @Log4j2
-public class CiscoCollector {
+public class CiscoCollector implements Collector {
 
     private static final int TIMEOUT_MS = 60_000;
 

@@ -19,7 +19,7 @@ import java.util.*;
  * NETCONF 1.0 framing (]]>]]> delimiter).
  */
 @Log4j2
-public class JuniperCollector {
+public class JuniperCollector implements Collector {
 
     private static final String DELIM = "]]>]]>";
     private static final String NETCONF_HELLO

@@ -41,34 +41,22 @@ public class RoutingInstancesReport {
         Map<String, RoutingInstance> instances = new TreeMap<>();
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
 
-        JuniperCollector juniper = new JuniperCollector(login, pass);
-        CiscoCollector cisco = new CiscoCollector(login, pass, ciscoEnable);
-        RouterOSCollector routeros = new RouterOSCollector(login, pass);
+        Collector juniper = new JuniperCollector(login, pass);
+        Collector cisco = new CiscoCollector(login, pass, ciscoEnable);
+        Collector routeros = new RouterOSCollector(login, pass);
 
-        for (String host : juniperHosts) {
-            log.info("Collecting from Juniper: {}", host);
-            try {
-                juniper.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                log.error("Juniper {} failed: {}", host, e.getMessage(), e);
-            }
-        }
-
-        for (String host : ciscoHosts) {
-            log.info("Collecting from Cisco: {}", host);
-            try {
-                cisco.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                log.error("Cisco {} failed: {}", host, e.getMessage(), e);
-            }
-        }
-
-        for (String host : routerosHosts) {
-            log.info("Collecting from RouterOS: {}", host);
-            try {
-                routeros.collect(host, instances, vrfVplsList);
-            } catch (Exception e) {
-                log.error("RouterOS {} failed: {}", host, e.getMessage(), e);
+        for (var e : List.of(
+                Map.entry(juniper, juniperHosts),
+                Map.entry(cisco, ciscoHosts),
+                Map.entry(routeros, routerosHosts))) {
+            String label = e.getKey().getClass().getSimpleName().replace("Collector", "");
+            for (String host : e.getValue()) {
+                log.info("Collecting from {}: {}", label, host);
+                try {
+                    e.getKey().collect(host, instances, vrfVplsList);
+                } catch (Exception ex) {
+                    log.error("{} {} failed: {}", label, host, ex.getMessage(), ex);
+                }
             }
         }
 
