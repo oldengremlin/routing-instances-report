@@ -45,6 +45,7 @@ public class RoutingInstancesReport {
         Collector juniper = new JuniperCollector(login, pass);
         Collector juniperConnections = new JuniperConnectionsCollector(login, pass);
         Collector juniperL2circuit = new JuniperL2circuitCollector(login, pass);
+        Collector juniperBridgedomains = new JuniperBridgedomainsCollector(login, pass);
         Collector cisco = new CiscoCollector(login, pass, ciscoEnable);
         Collector routeros = new RouterOSCollector(login, pass);
 
@@ -52,6 +53,7 @@ public class RoutingInstancesReport {
                 Map.entry(juniper, juniperHosts),
                 Map.entry(juniperConnections, juniperHosts),
                 Map.entry(juniperL2circuit, juniperHosts),
+                Map.entry(juniperBridgedomains, juniperHosts),
                 Map.entry(cisco, ciscoHosts),
                 Map.entry(routeros, routerosHosts))) {
             String label = e.getKey().getClass().getSimpleName().replace("Collector", "");
