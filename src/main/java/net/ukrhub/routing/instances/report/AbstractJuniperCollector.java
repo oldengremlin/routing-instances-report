@@ -6,12 +6,23 @@ import com.jcraft.jsch.ChannelSubsystem;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import lombok.extern.log4j.Log4j2;
-
+import org.w3c.dom.Document;
+import org.w3c.dom.NodeList;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 @Log4j2
 abstract class AbstractJuniperCollector implements Collector {
@@ -41,6 +52,8 @@ abstract class AbstractJuniperCollector implements Collector {
             <rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">
             <close-session/></rpc>""".concat(DELIM);
 
+    private static final Pattern RE_SUFFIX = Pattern.compile("-re\\d+$", Pattern.CASE_INSENSITIVE);
+
     private final String login;
     private final String pass;
     private final StringBuilder leftover = new StringBuilder();
@@ -48,6 +61,36 @@ abstract class AbstractJuniperCollector implements Collector {
     AbstractJuniperCollector(String login, String pass) {
         this.login = login;
         this.pass = pass;
+    }
+
+    /** Returns cached XML dump if available, otherwise fetches via NETCONF. */
+    protected String readOrFetch(String hostname) throws Exception {
+        Path dumpFile = Path.of("/tmp/juniper-" + hostname + ".xml");
+        if (Files.exists(dumpFile)) {
+            log.debug("Using cached dump from {}", dumpFile);
+            return Files.readString(dumpFile, StandardCharsets.UTF_8);
+        }
+        return fetchNetconf(hostname);
+    }
+
+    protected Document parseXml(String xml) throws Exception {
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setNamespaceAware(false);
+        DocumentBuilder db = dbf.newDocumentBuilder();
+        db.setErrorHandler(null);
+        return db.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** Extracts router base name from system/host-name, stripping -re\d+ suffix. */
+    protected String extractRouterName(Document doc, XPath xp, String fallback) throws Exception {
+        NodeList nodes = (NodeList) xp.evaluate(
+                "//system/host-name[not(ancestor::dynamic-profiles)]", doc, XPathConstants.NODESET);
+        Set<String> baseNames = new TreeSet<>();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            String hn = nodes.item(i).getTextContent().trim();
+            baseNames.add(RE_SUFFIX.matcher(hn).replaceAll(""));
+        }
+        return (baseNames.isEmpty() ? fallback : baseNames.iterator().next()).toUpperCase();
     }
 
     protected String fetchNetconf(String hostname) throws Exception {
