@@ -54,6 +54,7 @@ public class JuniperCollector implements Collector {
         this.pass = pass;
     }
 
+    @Override
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         String xmlResponse = fetchNetconf(hostname);
@@ -142,6 +143,7 @@ public class JuniperCollector implements Collector {
         channel.disconnect();
         session.disconnect();
         log.debug("NETCONF session closed: {}", hostname);
+
         return response;
     }
 

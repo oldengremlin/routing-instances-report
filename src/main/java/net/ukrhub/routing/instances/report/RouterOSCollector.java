@@ -23,6 +23,7 @@ public class RouterOSCollector implements Collector {
         this.pass = pass;
     }
 
+    @Override
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         log.info("Connecting to {} via SSH", hostname);

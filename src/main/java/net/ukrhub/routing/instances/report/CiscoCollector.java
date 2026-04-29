@@ -28,6 +28,7 @@ public class CiscoCollector implements Collector {
         this.enablePass = enablePass;
     }
 
+    @Override
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         log.info("Connecting to {} via Telnet", hostname);
