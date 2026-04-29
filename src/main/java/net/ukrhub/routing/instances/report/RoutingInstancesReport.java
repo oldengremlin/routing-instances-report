@@ -43,11 +43,13 @@ public class RoutingInstancesReport {
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
 
         Collector juniper = new JuniperCollector(login, pass);
+        Collector juniperConnections = new JuniperConnectionsCollector(login, pass);
         Collector cisco = new CiscoCollector(login, pass, ciscoEnable);
         Collector routeros = new RouterOSCollector(login, pass);
 
         for (var e : List.of(
                 Map.entry(juniper, juniperHosts),
+                Map.entry(juniperConnections, juniperHosts),
                 Map.entry(cisco, ciscoHosts),
                 Map.entry(routeros, routerosHosts))) {
             String label = e.getKey().getClass().getSimpleName().replace("Collector", "");
