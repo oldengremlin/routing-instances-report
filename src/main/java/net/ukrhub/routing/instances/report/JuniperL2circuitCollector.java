@@ -40,7 +40,7 @@ public class JuniperL2circuitCollector extends AbstractJuniperCollector {
                 String vcId = xp.evaluate("virtual-circuit-id/text()", iface).trim();
 
                 String hostEntry = routerName + ", " + ifaceName + " → " + neighborIp;
-                RoutingInstance.merge(instances, vrfVplsList, vcId, "l2circuit", "", hostEntry);
+                RoutingInstance.merge(instances, vrfVplsList, vcId + "/" + routerName, "l2circuit", "", hostEntry);
                 total++;
             }
         }
