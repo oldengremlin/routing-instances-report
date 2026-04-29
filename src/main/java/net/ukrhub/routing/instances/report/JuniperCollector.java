@@ -2,9 +2,7 @@ package net.ukrhub.routing.instances.report;
 
 import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
-import javax.xml.parsers.*;
 import javax.xml.xpath.*;
-import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -29,12 +27,7 @@ public class JuniperCollector extends AbstractJuniperCollector {
         Files.writeString(dumpFile, xmlResponse, StandardCharsets.UTF_8);
         log.debug("Configuration saved to {}", dumpFile);
 
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-        dbf.setNamespaceAware(false);
-        DocumentBuilder db = dbf.newDocumentBuilder();
-        db.setErrorHandler(null);
-        Document doc = db.parse(new ByteArrayInputStream(xmlResponse.getBytes(StandardCharsets.UTF_8)));
-
+        var doc = parseXml(xmlResponse);
         XPath xp = XPathFactory.newInstance().newXPath();
         NodeList riNodes = (NodeList) xp.evaluate(
                 "//routing-instances/instance[not(ancestor::dynamic-profiles)]", doc, XPathConstants.NODESET);
