@@ -42,8 +42,8 @@ public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
 
             String hostEntry = routerName
                     + (vlanId.isEmpty() ? "" : ", " + vlanId)
-                    + "<br>" + String.join(", ", ifaces);
-            RoutingInstance.merge(instances, vrfVplsList, name, "bridge-domains", "", hostEntry);
+                    + " → " + String.join(", ", ifaces);
+            RoutingInstance.merge(instances, vrfVplsList, name, "bridge", "", hostEntry);
         }
 
         log.info("Parsed {} bridge-domains from {}", domains.getLength(), hostname);
