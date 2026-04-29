@@ -2,6 +2,7 @@ package net.ukrhub.routing.instances.report;
 
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -61,7 +62,11 @@ public class RoutingInstancesReport {
         }
 
         log.info("Collection complete: {} instances total", instances.size());
-        ReportGenerator.generate(instances, vrfVplsList, reportPath);
+        try {
+            ReportGenerator.generate(instances, vrfVplsList, reportPath);
+        } catch (IOException e) {
+            log.error("Failed to write report to {}: {}", reportPath, e.getMessage());
+        }
     }
 
     private static String require(String name) {
