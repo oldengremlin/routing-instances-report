@@ -71,7 +71,7 @@ public class JuniperCollector implements Collector {
 
         XPath xp = XPathFactory.newInstance().newXPath();
         NodeList riNodes = (NodeList) xp.evaluate(
-                "//routing-instances/instance", doc, XPathConstants.NODESET);
+                "//routing-instances/instance[not(ancestor::dynamic-profiles)]", doc, XPathConstants.NODESET);
 
         for (int i = 0; i < riNodes.getLength(); i++) {
             Node ri = riNodes.item(i);
