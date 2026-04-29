@@ -78,6 +78,7 @@ public class ReportGenerator {
         instances.values().forEach(ri -> {
             num[0]++;
             List<String> hosts = sortedHosts(ri);
+            String hostsSep = "BRIDGE".equals(ri.getType()) ? "<br>" : ", ";
             log.info("[{}] {} {} {}",
                     String.format("%-4s", ri.getType()),
                     String.format("%-50s", ri.getName()),
@@ -96,7 +97,7 @@ public class ReportGenerator {
                     ri.getType(),
                     ri.getHrefname(), ri.getName(),
                     ri.getName(), ri.getRd(),
-                    String.join(", ", hosts)));
+                    String.join(hostsSep, hosts)));
         });
         return sb.toString();
     }
