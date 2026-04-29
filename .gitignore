@@ -1,4 +1,5 @@
 run.sh
+.claude/
 
 # Maven build output
 target/
