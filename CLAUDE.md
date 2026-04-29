@@ -31,7 +31,7 @@ env vars → RoutingInstancesReport.main()
 
 **Deduplication key** (`HashUtils.computeKey`): instance name padded to 50 chars + MD5 + SHA-1, matching the original Perl implementation so the same VRF present on multiple routers collapses into one row listing all routers.
 
-**Data model** (`RoutingInstance.java`): Lombok `@Data` — holds type, name, RD, and a set of router hostnames.
+**Data model** (`RoutingInstance.java`): Lombok `@Data` — holds type, name, RD, and a set of router hostnames. Also contains the static `merge()` method used by all three collectors to insert/update an instance in the shared maps.
 
 **Collectors** write raw dumps to `/tmp/juniper-<host>.xml` and `/tmp/cisco-<host>.conf` for debugging.
 

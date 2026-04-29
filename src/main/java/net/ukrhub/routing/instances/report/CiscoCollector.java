@@ -111,7 +111,7 @@ public class CiscoCollector {
             }
 
             if (!instance.isEmpty() && !rd.isEmpty()) {
-                JuniperCollector.merge(instances, vrfVplsList,
+                RoutingInstance.merge(instances, vrfVplsList,
                         instance, "vrf", rd, hostname.toUpperCase());
                 instance = "";
                 rd = "";

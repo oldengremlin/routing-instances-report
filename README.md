@@ -128,7 +128,7 @@ routing-instances-report/
 │   └── 40-routing-instances-report.sh  запускається entrypoint nginx у фоні
 └── src/main/java/net/ukrhub/routing/instances/report/
     ├── RoutingInstancesReport.java      головний клас — читає env vars, керує збиранням
-    ├── RoutingInstance.java             модель даних (@Data Lombok)
+    ├── RoutingInstance.java             модель даних (@Data Lombok) + статичний merge()
     ├── HashUtils.java                   складений ключ MD5 + SHA-1 (сумісний з Perl)
     ├── JuniperCollector.java            збирач NETCONF over SSH
     ├── CiscoCollector.java              збирач Telnet

@@ -80,7 +80,7 @@ public class RouterOSCollector {
                 cstr += s;
                 Matcher m = vrfPat.matcher(cstr);
                 if (m.find()) {
-                    JuniperCollector.merge(instances, vrfVplsList,
+                    RoutingInstance.merge(instances, vrfVplsList,
                             m.group(2).trim(), "vrf", m.group(1).trim(),
                             hostname.toUpperCase());
                 }
