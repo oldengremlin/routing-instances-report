@@ -26,6 +26,12 @@ import java.util.*;
 @Log4j2
 public class JuniperL2circuitCollector extends AbstractJuniperCollector {
 
+    /**
+     * Creates a new collector with the given SSH credentials.
+     *
+     * @param login SSH username
+     * @param pass  SSH password
+     */
     public JuniperL2circuitCollector(String login, String pass) {
         super(login, pass);
     }

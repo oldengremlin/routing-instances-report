@@ -30,6 +30,8 @@ public class CiscoCollector implements Collector {
     private final String enablePass;
 
     /**
+     * Creates a new collector with the given Telnet credentials.
+     *
      * @param login      Telnet username
      * @param pass       Telnet password
      * @param enablePass Cisco enable (privileged) password

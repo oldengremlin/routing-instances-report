@@ -32,6 +32,8 @@ import java.util.function.*;
 @Log4j2
 public class ReportGenerator {
 
+    private ReportGenerator() {}
+
     private static final String HTML_TEMPLATE = """
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>

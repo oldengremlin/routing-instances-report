@@ -29,6 +29,12 @@ import java.util.*;
 @Log4j2
 public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
 
+    /**
+     * Creates a new collector with the given SSH credentials.
+     *
+     * @param login SSH username
+     * @param pass  SSH password
+     */
     public JuniperBridgedomainsCollector(String login, String pass) {
         super(login, pass);
     }

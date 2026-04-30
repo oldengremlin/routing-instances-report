@@ -24,6 +24,9 @@ import java.util.Map;
 @Log4j2
 public class RoutingInstance {
 
+    /** Creates a new empty instance; fields are populated by {@link #merge}. */
+    public RoutingInstance() {}
+
     /** Display name (instance name as it appears in router config). */
     private String name;
 
