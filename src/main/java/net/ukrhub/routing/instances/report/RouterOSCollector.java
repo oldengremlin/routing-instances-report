@@ -9,8 +9,18 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Collects VRF definitions from MikroTik RouterOS via SSH. Executes "/ip route
- * vrf export compact" and parses continuation-line output.
+ * Collects VRF definitions from MikroTik RouterOS devices via SSH.
+ *
+ * <p>Executes {@code /ip route vrf export compact} over an SSH exec channel and
+ * parses the continuation-line output. RouterOS exports multi-line entries with
+ * a trailing backslash ({@code \}) on all but the last line; this collector
+ * reassembles them before matching.</p>
+ *
+ * <p>A complete VRF entry is a line matching:
+ * <pre>
+ *   /ip route vrf add ... route-distinguisher=AS:ID ... routing-mark=NAME
+ * </pre>
+ * and is merged with type {@code VRF}.</p>
  */
 @Log4j2
 public class RouterOSCollector implements Collector {
@@ -18,6 +28,10 @@ public class RouterOSCollector implements Collector {
     private final String login;
     private final String pass;
 
+    /**
+     * @param login SSH username
+     * @param pass  SSH password
+     */
     public RouterOSCollector(String login, String pass) {
         this.login = login;
         this.pass = pass;
@@ -57,6 +71,19 @@ public class RouterOSCollector implements Collector {
         log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
     }
 
+    /**
+     * Reassembles continuation lines and extracts VRF definitions.
+     *
+     * <p>Lines starting with {@code #} or empty lines are skipped. A line
+     * containing {@code /} and not ending with {@code \} starts a new section
+     * context. Continuation lines (ending with {@code \}) are concatenated.
+     * The final line of a logical entry is matched against the VRF pattern.</p>
+     *
+     * @param hostname     router hostname (used as the host entry label)
+     * @param lines        output split by line
+     * @param instances    shared instances map
+     * @param vrfVplsList  shared RD index map
+     */
     private void parseConfig(String hostname, String[] lines,
                              Map<String, RoutingInstance> instances,
                              Map<String, Map<String, String>> vrfVplsList) {

@@ -9,6 +9,26 @@ import java.util.regex.*;
 import java.util.stream.*;
 import java.util.function.*;
 
+/**
+ * Generates the HTML report from the collected routing instance data.
+ *
+ * <p>The report consists of three index sections followed by the main table:</p>
+ * <ol>
+ *   <li><b>VRF/VPLS list ordered by RD</b> — instances that carry a Route
+ *       Distinguisher, sorted by the numeric product AS×ID, with
+ *       bidirectional anchor links to the main table.</li>
+ *   <li><b>VC-ID/VPLS-ID list</b> — instances whose name starts with a
+ *       numeric prefix followed by {@code /} (L2CIRCUIT and secondary VPLS
+ *       rows), grouped by that prefix, with a count of endpoints per ID and
+ *       bidirectional links to the first matching table row.</li>
+ *   <li><b>Main table</b> — all collected instances in deduplication-key
+ *       order, with type, name, RD, and router host entries.</li>
+ * </ol>
+ *
+ * <p>IP addresses in host entries are resolved to router names via the
+ * {@code loAddresses} map built by {@link LoAddressMapper}: a bare address
+ * {@code A.B.C.D} becomes {@code ROUTERNAME/A.B.C.D}.</p>
+ */
 @Log4j2
 public class ReportGenerator {
 
@@ -33,12 +53,23 @@ public class ReportGenerator {
 </html>
 """;
 
+    /** Matches IPv4 and IPv6 addresses inside host entry strings. */
     private static final Pattern IP_PATTERN = Pattern.compile(
             "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}" +
             "|(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)(?:\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)){3}");
 
+    /** Matches instance names of the form {@code DIGITS/...} (L2CIRCUIT, secondary VPLS). */
     private static final Pattern VCID_PAT = Pattern.compile("^(\\d+)/");
 
+    /**
+     * Builds and writes the HTML report.
+     *
+     * @param instances    all collected routing instances (sorted by deduplication key)
+     * @param vrfVplsList  RD → {name, href} map for the RD index
+     * @param outputPath   destination file path (typically the nginx document root)
+     * @param loAddresses  lo0 IP → router name map for address resolution
+     * @throws IOException if the output file cannot be written
+     */
     public static void generate(Map<String, RoutingInstance> instances,
                                 Map<String, Map<String, String>> vrfVplsList,
                                 String outputPath,
@@ -56,6 +87,16 @@ public class ReportGenerator {
         log.info("Report written: {}", outputPath);
     }
 
+    /**
+     * Builds the ordered RD index list (section 1).
+     *
+     * <p>Entries are sorted by the numeric product of AS × ID extracted from the
+     * RD string. Each item links to the corresponding table row anchor, and the
+     * table row carries a reverse link back here.</p>
+     *
+     * @param vrfVplsList  RD → {name, href} map
+     * @return             HTML fragment
+     */
     private static String buildVrfList(Map<String, Map<String, String>> vrfVplsList) {
         StringBuilder sb = new StringBuilder("    <p><h1>Список VRF/VPLS упорядкований за RD</h1><ol>\n");
 
@@ -78,6 +119,20 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    /**
+     * Builds the VC-ID/VPLS-ID index list (section 2).
+     *
+     * <p>Groups all instances whose name starts with {@code DIGITS/} by the
+     * numeric prefix, counts entries per ID, and links to the first table row
+     * with that prefix. Returns an empty string if no such instances exist.</p>
+     *
+     * <p>Instances are iterated in {@link java.util.TreeMap} order (i.e. the
+     * same order as the main table) so that "first" is consistent with what
+     * the reader sees on screen.</p>
+     *
+     * @param instances  all collected routing instances
+     * @return           HTML fragment, or {@code ""} if no VC-ID entries exist
+     */
     private static String buildVcidList(Map<String, RoutingInstance> instances) {
         Map<Integer, String> firstHref = new LinkedHashMap<>();
         Map<Integer, Integer> counts = new LinkedHashMap<>();
@@ -104,6 +159,18 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    /**
+     * Builds the main table body rows (section 3).
+     *
+     * <p>For each instance, host entries are IP-resolved, sorted by type-specific
+     * rules, and joined with {@code <br>}. Instances whose name matches
+     * {@link #VCID_PAT} receive a superscript {@code ↑} back-link to their
+     * entry in the VC-ID index list.</p>
+     *
+     * @param instances    all collected routing instances
+     * @param loAddresses  lo0 IP → router name map
+     * @return             HTML fragment containing all {@code <tr>} rows
+     */
     private static String buildVrfInfo(Map<String, RoutingInstance> instances,
                                        Map<String, String> loAddresses) {
         StringBuilder sb = new StringBuilder();
@@ -146,6 +213,15 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    /**
+     * Replaces bare IPv4 and IPv6 addresses in {@code s} with
+     * {@code ROUTERNAME/ADDRESS} using the {@code loAddresses} lookup.
+     * Addresses not present in the map are left unchanged.
+     *
+     * @param s            host entry string
+     * @param loAddresses  lo0 IP → router name map
+     * @return             string with recognised addresses substituted
+     */
     private static String resolveIps(String s, Map<String, String> loAddresses) {
         if (loAddresses.isEmpty()) return s;
         return IP_PATTERN.matcher(s).replaceAll(mr -> {
@@ -154,6 +230,16 @@ public class ReportGenerator {
         });
     }
 
+    /**
+     * Returns the host list for {@code ri} in display order.
+     *
+     * <p>VPLS instances are sorted by the numeric site-ID after the colon
+     * (e.g. {@code ROUTER:42(-)}) to keep sites in natural order; ties are
+     * broken alphabetically. All other types are sorted alphabetically.</p>
+     *
+     * @param ri routing instance
+     * @return   sorted, mutable copy of the host list
+     */
     private static List<String> sortedHosts(RoutingInstance ri) {
         if (ri.getType().startsWith("VPLS")) {
             return ri.getHosts().stream()
@@ -170,6 +256,14 @@ public class ReportGenerator {
         return ri.getHosts().stream().sorted().collect(Collectors.toList());
     }
 
+    /**
+     * Returns a sequence of {@code <br />} elements used to pad the page so
+     * that anchor links to the last table rows scroll the target row to the
+     * top of the viewport rather than the bottom.
+     *
+     * @param count number of instances (one {@code <br />} per instance)
+     * @return      HTML fragment
+     */
     private static String buildPostBr(int count) {
         return "    " + "<br />".repeat(count) + "\n";
     }
