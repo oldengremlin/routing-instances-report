@@ -28,11 +28,15 @@ public class RoutingInstance {
 
         RoutingInstance ri = instances.computeIfAbsent(key, k -> new RoutingInstance());
         String rdStr = rd.isEmpty() ? " ".repeat(17) : String.format(" [RD:%-11s]", rd);
+        String hrefname = rdStr.replaceAll("[\\[\\]\\s+]", "").replace(":", "_");
+        if (hrefname.isEmpty()) {
+            hrefname = name.replaceAll("[^A-Za-z0-9_-]", "_");
+        }
         ri
                 .setName(name)
                 .setType(type.toUpperCase())
                 .setRd(rdStr)
-                .setHrefname(rdStr.replaceAll("[\\[\\]\\s+]", "").replace(":", "_"));
+                .setHrefname(hrefname);
 
         ri.getHosts().add(hostEntry);
         log.debug("Merge: [{}] {} {} @ {}", ri.getType(), name, ri.getRd().strip(), hostEntry);
