@@ -90,6 +90,10 @@ public class JuniperCollector extends AbstractJuniperCollector {
                     + neighborsPart;
 
             RoutingInstance.merge(instances, vrfVplsList, name, type, rd, hostEntry);
+            if (!ldpNeighbors.isEmpty() && !vplsId.isEmpty()) {
+                RoutingInstance.merge(instances, vrfVplsList,
+                        vplsId + "/" + hostname.toUpperCase(), type, rd, hostEntry);
+            }
         }
 
         log.info("Parsed {} routing instances from {}", riNodes.getLength(), hostname);
