@@ -41,8 +41,12 @@ public class JuniperCollector extends AbstractJuniperCollector {
             String inactive = (ri instanceof Element e) ? e.getAttribute("inactive") : "";
 
             String siteId = "";
-            if ("vpls".equals(type) && !rd.isEmpty()) {
-                siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
+            if ("vpls".equals(type)) {
+                if (!rd.isEmpty()) {
+                    siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
+                }
+                String routingIface = xp.evaluate("routing-interface/text()", ri).trim();
+                type = routingIface.isEmpty() ? "vpls/l2" : "vpls/l3";
             }
 
             String hostEntry = hostname.toUpperCase()

@@ -37,10 +37,12 @@
 
 | Колектор | XPath | Тип у звіті | Найменування |
 |----------|-------|-------------|--------------|
-| `JuniperCollector` | `//routing-instances/instance` | `VRF` / `VPLS` / … | `instance/name` |
-| `JuniperConnectionsCollector` | `//protocols/connections/interface-switch` | `CONNECTIONS` | `interface-switch/name` |
+| `JuniperCollector` | `//routing-instances/instance` | `VRF` / `VPLS/L2` / `VPLS/L3` / … | `instance/name` |
+| `JuniperSwitchCollector` | `//protocols/connections/interface-switch` | `SWITCH` | `interface-switch/name` |
 | `JuniperL2circuitCollector` | `//protocols/l2circuit/neighbor/interface` | `L2CIRCUIT` | `virtual-circuit-id/ROUTER` |
-| `JuniperBridgedomainsCollector` | `//bridge-domains/domain` | `BRIDGE` | `domain/name` |
+| `JuniperBridgedomainsCollector` | `//bridge-domains/domain` | `BRIDGE/L2` / `BRIDGE/L3` | `domain/name` |
+
+VPLS та bridge-domain отримують суфікс `/L3` якщо містять елемент `<routing-interface>`, інакше `/L2`. Деактивовані секції (`inactive="inactive"`) позначаються `(-)` — для SWITCH і L2CIRCUIT після імені маршрутизатора, для BRIDGE після імені конкретного інтерфейсу.
 
 Усі чотири ігнорують вузли всередині `<dynamic-profiles>`.
 
@@ -143,7 +145,7 @@ routing-instances-report/
     ├── Collector.java                   інтерфейс — void collect(host, instances, vrfVplsList)
     ├── AbstractJuniperCollector.java    базовий клас: NETCONF транспорт + XML/hostname хелпери
     ├── JuniperCollector.java            routing-instances (VRF, VPLS, …)
-    ├── JuniperConnectionsCollector.java connections/interface-switch
+    ├── JuniperSwitchCollector.java       connections/interface-switch
     ├── JuniperL2circuitCollector.java   l2circuit/neighbor/interface
     ├── JuniperBridgedomainsCollector.java bridge-domains/domain
     ├── CiscoCollector.java              Telnet, show running-config

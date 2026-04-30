@@ -78,7 +78,7 @@ public class ReportGenerator {
         instances.values().forEach(ri -> {
             num[0]++;
             List<String> hosts = sortedHosts(ri);
-            String hostsSep = "BRIDGE".equals(ri.getType()) ? "<br>" : ", ";
+            String hostsSep = ri.getType().startsWith("BRIDGE") ? "<br>" : ", ";
             log.info("[{}] {} {} {}",
                     String.format("%-4s", ri.getType()),
                     String.format("%-50s", ri.getName()),
@@ -103,7 +103,7 @@ public class ReportGenerator {
     }
 
     private static List<String> sortedHosts(RoutingInstance ri) {
-        if ("VPLS".equals(ri.getType())) {
+        if (ri.getType().startsWith("VPLS")) {
             return ri.getHosts().stream()
                     .sorted(Comparator.comparingInt((String h) -> {
                         int colon = h.indexOf(':');

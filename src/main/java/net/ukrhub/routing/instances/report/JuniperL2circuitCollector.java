@@ -38,8 +38,11 @@ public class JuniperL2circuitCollector extends AbstractJuniperCollector {
                 Node iface = ifaces.item(j);
                 String ifaceName = xp.evaluate("name/text()", iface).trim();
                 String vcId = xp.evaluate("virtual-circuit-id/text()", iface).trim();
+                String inactive = (iface instanceof Element e) ? e.getAttribute("inactive") : "";
 
-                String hostEntry = routerName + ", " + ifaceName + " → " + neighborIp;
+                String hostEntry = routerName
+                        + ("inactive".equals(inactive) ? "(-)" : "")
+                        + ", " + ifaceName + " → " + neighborIp;
                 RoutingInstance.merge(instances, vrfVplsList, vcId + "/" + routerName, "l2circuit", "", hostEntry);
                 total++;
             }
