@@ -37,12 +37,14 @@ public class ReportGenerator {
             "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}" +
             "|(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)(?:\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)){3}");
 
+    private static final Pattern VCID_PAT = Pattern.compile("^(\\d+)/");
+
     public static void generate(Map<String, RoutingInstance> instances,
                                 Map<String, Map<String, String>> vrfVplsList,
                                 String outputPath,
                                 Map<String, String> loAddresses) throws IOException {
         String html = HTML_TEMPLATE
-                .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + "    <!--VRFVPLSLIST-->")
+                .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + buildVcidList(instances) + "    <!--VRFVPLSLIST-->")
                 .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances, loAddresses) + "\t    <!--VRFVPLSINFO-->")
                 .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
@@ -76,6 +78,32 @@ public class ReportGenerator {
         return sb.toString();
     }
 
+    private static String buildVcidList(Map<String, RoutingInstance> instances) {
+        Map<Integer, String> firstHref = new LinkedHashMap<>();
+        Map<Integer, Integer> counts = new LinkedHashMap<>();
+        instances.values().forEach(ri -> {
+            Matcher m = VCID_PAT.matcher(ri.getName());
+            if (m.find()) {
+                int vcid = Integer.parseInt(m.group(1));
+                firstHref.putIfAbsent(vcid, ri.getHrefname());
+                counts.merge(vcid, 1, Integer::sum);
+            }
+        });
+        if (counts.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder("    <p><h1>Список VC-ID/VPLS-ID</h1><ol>\n");
+        counts.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> {
+                    int vcid = e.getKey();
+                    sb.append(String.format(
+                            "    <li><a name=\"vcid-%d\" /><a href=\"#%s\">%d</a> — %d</li>\n",
+                            vcid, firstHref.get(vcid), vcid, e.getValue()));
+                });
+        sb.append("    </ol></p>\n");
+        return sb.toString();
+    }
+
     private static String buildVrfInfo(Map<String, RoutingInstance> instances,
                                        Map<String, String> loAddresses) {
         StringBuilder sb = new StringBuilder();
@@ -96,17 +124,22 @@ public class ReportGenerator {
 
             String hostsHtml = String.join(hostsSep, resolvedHosts);
 
+            Matcher vcm = VCID_PAT.matcher(ri.getName());
+            String vcidBack = vcm.find()
+                    ? " <sup><a href=\"#vcid-" + vcm.group(1) + "\">↑</a></sup>"
+                    : "";
+
             sb.append(String.format(
                     sp + "<tr>"
                     + "<td style=\"vertical-align: top; text-align: right;\">%d</td>"
                     + "<td style=\"vertical-align: top;\">%s</td>"
-                    + "<td style=\"vertical-align: top;\"><a name=\"%s\" />%s</td>"
+                    + "<td style=\"vertical-align: top;\"><a name=\"%s\" />%s%s</td>"
                     + "<td style=\"vertical-align: top;\"><a href=\"#%s\">%s</a></td>"
                     + "<td style=\"vertical-align: top;\">%s</td>"
                     + "</tr>\n",
                     num[0],
                     ri.getType(),
-                    ri.getHrefname(), ri.getName(),
+                    ri.getHrefname(), ri.getName(), vcidBack,
                     ri.getName(), ri.getRd(),
                     hostsHtml));
         });
