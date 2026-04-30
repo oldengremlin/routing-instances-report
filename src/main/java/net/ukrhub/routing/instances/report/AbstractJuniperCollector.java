@@ -24,6 +24,25 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+/**
+ * Base class for all Juniper collectors.
+ *
+ * <p>Provides the NETCONF 1.0 transport over SSH (both {@code subsystem-netconf}
+ * and {@code exec} channel modes) and three XML helpers shared by the four
+ * concrete subclasses:</p>
+ * <ul>
+ *   <li>{@link #readOrFetch} — returns a cached {@code /tmp/juniper-HOST.xml}
+ *       dump when available, falling back to a live NETCONF fetch;</li>
+ *   <li>{@link #parseXml} — parses an XML string into a DOM {@link Document};</li>
+ *   <li>{@link #extractRouterName} — resolves the router's base hostname from
+ *       {@code //system/host-name}, stripping the {@code -re\d+} routing-engine
+ *       suffix.</li>
+ * </ul>
+ *
+ * <p>The channel mode is controlled by the {@code OPENCHANNEL} environment
+ * variable ({@code subsystem-netconf} by default, {@code exec} as alternative).
+ * JSch log noise is suppressed to WARN regardless of the application log level.</p>
+ */
 @Log4j2
 abstract class AbstractJuniperCollector implements Collector {
 
@@ -52,10 +71,16 @@ abstract class AbstractJuniperCollector implements Collector {
             <rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="2">
             <close-session/></rpc>""".concat(DELIM);
 
+    /** Matches the {@code -re0} / {@code -re1} routing-engine suffix in JunOS hostnames. */
     private static final Pattern RE_SUFFIX = Pattern.compile("-re\\d+$", Pattern.CASE_INSENSITIVE);
 
     private final String login;
     private final String pass;
+
+    /**
+     * Carries bytes that were read past the NETCONF delimiter during
+     * {@link #readUntilDelimiter} so they are not lost between calls.
+     */
     private final StringBuilder leftover = new StringBuilder();
 
     AbstractJuniperCollector(String login, String pass) {
@@ -63,7 +88,17 @@ abstract class AbstractJuniperCollector implements Collector {
         this.pass = pass;
     }
 
-    /** Returns cached XML dump if available, otherwise fetches via NETCONF. */
+    /**
+     * Returns the raw XML configuration for {@code hostname}.
+     *
+     * <p>If {@code /tmp/juniper-HOST.xml} already exists (written by
+     * {@link JuniperCollector} earlier in the same run) it is read from disk.
+     * Otherwise a live NETCONF session is opened via {@link #fetchNetconf}.</p>
+     *
+     * @param hostname router hostname
+     * @return         full XML string of the running configuration
+     * @throws Exception on I/O or SSH error
+     */
     protected String readOrFetch(String hostname) throws Exception {
         Path dumpFile = Path.of("/tmp/juniper-" + hostname + ".xml");
         if (Files.exists(dumpFile)) {
@@ -73,6 +108,13 @@ abstract class AbstractJuniperCollector implements Collector {
         return fetchNetconf(hostname);
     }
 
+    /**
+     * Parses an XML string into a namespace-unaware DOM {@link Document}.
+     *
+     * @param xml XML text (UTF-8)
+     * @return    parsed document
+     * @throws Exception on XML parse error
+     */
     protected Document parseXml(String xml) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(false);
@@ -81,7 +123,21 @@ abstract class AbstractJuniperCollector implements Collector {
         return db.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
     }
 
-    /** Extracts router base name from system/host-name, stripping -re\d+ suffix. */
+    /**
+     * Extracts the router's canonical base name from {@code //system/host-name}.
+     *
+     * <p>JunOS dual-RE systems report two host-name nodes ({@code router-re0},
+     * {@code router-re1}). Both are collected, the {@code -re\d+} suffix is
+     * stripped, duplicates are removed, and the lexicographically first result
+     * is returned in upper case. Falls back to {@code fallback} (the DNS
+     * hostname) when no host-name element is found.</p>
+     *
+     * @param doc      parsed configuration document
+     * @param xp       XPath instance to reuse
+     * @param fallback hostname to use if {@code //system/host-name} is absent
+     * @return         upper-cased base router name
+     * @throws Exception on XPath evaluation error
+     */
     protected String extractRouterName(Document doc, XPath xp, String fallback) throws Exception {
         NodeList nodes = (NodeList) xp.evaluate(
                 "//system/host-name[not(ancestor::dynamic-profiles)]", doc, XPathConstants.NODESET);
@@ -93,6 +149,20 @@ abstract class AbstractJuniperCollector implements Collector {
         return (baseNames.isEmpty() ? fallback : baseNames.iterator().next()).toUpperCase();
     }
 
+    /**
+     * Opens an SSH connection to {@code hostname}, runs a NETCONF session
+     * (RFC 6241, NETCONF 1.0 framing), retrieves the full running configuration,
+     * and returns it as a raw XML string.
+     *
+     * <p>The channel type is selected by the {@code OPENCHANNEL} environment
+     * variable: {@code subsystem-netconf} (default) opens a proper NETCONF
+     * subsystem; {@code exec} runs {@code xml-mode netconf need-trailer} instead,
+     * which is useful when the NETCONF subsystem is not available.</p>
+     *
+     * @param hostname router hostname
+     * @return         XML text of the {@code <rpc-reply>} containing running config
+     * @throws Exception on SSH, channel, or I/O error
+     */
     protected String fetchNetconf(String hostname) throws Exception {
         leftover.setLength(0);
         log.info("Connecting to {} via NETCONF/SSH", hostname);
@@ -144,11 +214,29 @@ abstract class AbstractJuniperCollector implements Collector {
         return response;
     }
 
+    /**
+     * Writes {@code msg} to the NETCONF output stream and flushes.
+     *
+     * @param out SSH channel output stream
+     * @param msg NETCONF RPC or hello message (already includes {@code ]]>]]>} delimiter)
+     */
     private void send(OutputStream out, String msg) throws IOException {
         out.write(msg.getBytes(StandardCharsets.UTF_8));
         out.flush();
     }
 
+    /**
+     * Reads from {@code in} until the NETCONF 1.0 {@code ]]>]]>} delimiter is
+     * encountered and returns everything before it.
+     *
+     * <p>Any bytes read after the delimiter are stored in {@link #leftover} and
+     * prepended to the next call's buffer, ensuring no data is lost between
+     * consecutive RPC exchanges on the same channel.</p>
+     *
+     * @param in SSH channel input stream
+     * @return   text preceding the delimiter
+     * @throws IOException on read error or unexpected EOF
+     */
     private String readUntilDelimiter(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder(65536);
         sb.append(leftover);

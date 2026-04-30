@@ -6,9 +6,22 @@ import javax.xml.xpath.*;
 import java.util.*;
 
 /**
- * Collects protocols/l2circuit/neighbor/interface entries from Juniper routers.
- * Reads the XML dump written by JuniperCollector if available, otherwise
- * fetches via NETCONF independently.
+ * Collects {@code protocols/l2circuit/neighbor/interface} entries from Juniper
+ * routers.
+ *
+ * <p>Reads the XML dump written by {@link JuniperCollector} if available,
+ * otherwise fetches via NETCONF independently. Parses
+ * {@code //protocols/l2circuit/neighbor} nodes, excluding those inside
+ * {@code <dynamic-profiles>}, and iterates their {@code interface} children.</p>
+ *
+ * <p>Each circuit is recorded with type {@code L2CIRCUIT}. The instance name
+ * is composed as {@code virtual-circuit-id/ROUTER} so circuits with the same
+ * VC-ID from different routers appear as separate rows, which is intentional
+ * for point-to-point circuits. A deactivated {@code interface} node
+ * (attribute {@code inactive="inactive"}) is marked with {@code (-)} after
+ * the router name.</p>
+ *
+ * <p>Host entry format: {@code ROUTER[(−)], ifaceName → neighborIP}</p>
  */
 @Log4j2
 public class JuniperL2circuitCollector extends AbstractJuniperCollector {

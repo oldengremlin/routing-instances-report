@@ -10,8 +10,15 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Collects VRF definitions from Cisco IOS routers via Telnet. Parses "show
- * running-config" for "ip vrf NAME / rd X:Y" blocks.
+ * Collects VRF definitions from Cisco IOS routers via Telnet.
+ *
+ * <p>Connects on port 23, authenticates with username/password, enters
+ * privileged mode ({@code enable}), disables pagination ({@code terminal
+ * length 0}), and captures {@code show running-config}. The raw output is
+ * saved to {@code /tmp/cisco-HOST.conf} for debugging.</p>
+ *
+ * <p>Parser looks for {@code ip vrf NAME} / {@code rd X:Y} block pairs.
+ * Each complete pair is merged as type {@code VRF}.</p>
  */
 @Log4j2
 public class CiscoCollector implements Collector {
@@ -22,6 +29,11 @@ public class CiscoCollector implements Collector {
     private final String pass;
     private final String enablePass;
 
+    /**
+     * @param login      Telnet username
+     * @param pass       Telnet password
+     * @param enablePass Cisco enable (privileged) password
+     */
     public CiscoCollector(String login, String pass, String enablePass) {
         this.login = login;
         this.pass = pass;
@@ -66,6 +78,15 @@ public class CiscoCollector implements Collector {
         log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
     }
 
+    /**
+     * Reads from the Telnet stream until {@code target} appears in the buffer
+     * or the timeout expires.
+     *
+     * @param in     Telnet input stream
+     * @param target string to wait for (e.g. {@code "#"}, {@code "Password:"})
+     * @return       everything read up to and including {@code target}
+     * @throws IOException on read error or timeout
+     */
     private String readUntil(InputStream in, String target) throws IOException {
         StringBuilder sb = new StringBuilder();
         long deadline = System.currentTimeMillis() + TIMEOUT_MS;
@@ -91,6 +112,15 @@ public class CiscoCollector implements Collector {
         throw new IOException("Timeout waiting for '" + target + "'");
     }
 
+    /**
+     * Scans config lines for {@code ip vrf} / {@code rd} pairs and merges each
+     * into the shared instance map.
+     *
+     * @param hostname     router hostname (used as the host entry label)
+     * @param lines        config split by line
+     * @param instances    shared instances map
+     * @param vrfVplsList  shared RD index map
+     */
     private void parseConfig(String hostname, String[] lines,
                              Map<String, RoutingInstance> instances,
                              Map<String, Map<String, String>> vrfVplsList) {

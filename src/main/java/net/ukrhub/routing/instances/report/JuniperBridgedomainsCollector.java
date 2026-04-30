@@ -6,9 +6,25 @@ import javax.xml.xpath.*;
 import java.util.*;
 
 /**
- * Collects bridge-domains/domain entries from Juniper routers.
- * Reads the XML dump written by JuniperCollector if available, otherwise
- * fetches via NETCONF independently.
+ * Collects {@code bridge-domains/domain} entries from Juniper routers.
+ *
+ * <p>Reads the XML dump written by {@link JuniperCollector} if available,
+ * otherwise fetches via NETCONF independently. Parses
+ * {@code //bridge-domains/domain} nodes, excluding those inside
+ * {@code <dynamic-profiles>}.</p>
+ *
+ * <p>Type mapping:</p>
+ * <ul>
+ *   <li>Domain without {@code <routing-interface>} → {@code BRIDGE/L2}</li>
+ *   <li>Domain with {@code <routing-interface>} → {@code BRIDGE/L3}</li>
+ * </ul>
+ *
+ * <p>Per-interface inactive state (attribute {@code inactive="inactive"}) is
+ * marked with {@code (-)} after the interface name. A deactivated
+ * {@code routing-interface} is marked with {@code (-)} after the IRB name.</p>
+ *
+ * <p>Host entry format:
+ * {@code ROUTER[, vlan-id] → [irb[(−)] →] iface1, iface2[(−)], …}</p>
  */
 @Log4j2
 public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {

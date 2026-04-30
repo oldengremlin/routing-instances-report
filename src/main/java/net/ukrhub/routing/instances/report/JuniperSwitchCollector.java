@@ -6,9 +6,18 @@ import javax.xml.xpath.*;
 import java.util.*;
 
 /**
- * Collects connections/interface-switch entries from Juniper routers.
- * Reads the XML dump written by JuniperCollector if available, otherwise
- * fetches via NETCONF independently.
+ * Collects {@code connections/interface-switch} entries from Juniper routers.
+ *
+ * <p>Reads the XML dump written by {@link JuniperCollector} if available,
+ * otherwise fetches via NETCONF independently. Parses
+ * {@code //protocols/connections/interface-switch} nodes, excluding those
+ * inside {@code <dynamic-profiles>}.</p>
+ *
+ * <p>Each switch is recorded with type {@code SWITCH}. A deactivated
+ * {@code interface-switch} node (attribute {@code inactive="inactive"}) is
+ * marked with {@code (-)} after the router name.</p>
+ *
+ * <p>Host entry format: {@code ROUTER[(−)] → iface1, iface2, …}</p>
  */
 @Log4j2
 public class JuniperSwitchCollector extends AbstractJuniperCollector {

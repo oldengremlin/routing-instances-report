@@ -8,8 +8,27 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Collects routing instances from Juniper routers via NETCONF over SSH. Uses
- * NETCONF 1.0 framing (]]>]]> delimiter).
+ * Collects routing instances from Juniper routers via NETCONF over SSH.
+ *
+ * <p>Fetches the full running configuration, saves it to
+ * {@code /tmp/juniper-HOST.xml} for reuse by the other Juniper collectors in
+ * the same run, then parses {@code //routing-instances/instance} nodes
+ * (excluding those inside {@code <dynamic-profiles>}).</p>
+ *
+ * <p>Type mapping:</p>
+ * <ul>
+ *   <li>{@code vrf} → {@code VRF}</li>
+ *   <li>{@code vpls} without {@code <routing-interface>} → {@code VPLS/L2}</li>
+ *   <li>{@code vpls} with {@code <routing-interface>} → {@code VPLS/L3}</li>
+ * </ul>
+ *
+ * <p>For VPLS instances an additional secondary row is emitted when LDP
+ * neighbors and a VPLS-ID are present, keyed as
+ * {@code vpls-id/ROUTER (instance-name)}, so related circuits appear
+ * together in the sorted table.</p>
+ *
+ * <p>Deactivated sections carry the {@code inactive="inactive"} XML attribute
+ * and are marked with {@code (-)} in the output.</p>
  */
 @Log4j2
 public class JuniperCollector extends AbstractJuniperCollector {
@@ -18,6 +37,16 @@ public class JuniperCollector extends AbstractJuniperCollector {
         super(login, pass);
     }
 
+    /**
+     * Fetches and parses all routing instances for {@code hostname}.
+     *
+     * <p>Host entry format varies by type:</p>
+     * <ul>
+     *   <li>VRF: {@code ROUTER[(−)] [→ iface1, iface2[(−)]]}</li>
+     *   <li>VPLS/L2: {@code ROUTER[:siteId][(−)] [(vpls-id)][(vlan-id)] [→ iface1, …] [→ neighbor, …]}</li>
+     *   <li>VPLS/L3: {@code ROUTER[:siteId][(−)] [(vpls-id)][(vlan-id)] → irb[(−)] → iface1, … [→ neighbor, …]}</li>
+     * </ul>
+     */
     @Override
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
