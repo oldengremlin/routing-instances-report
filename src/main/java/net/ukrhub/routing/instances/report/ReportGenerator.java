@@ -110,7 +110,10 @@ public class ReportGenerator {
                         if (colon < 0) {
                             return 0;
                         }
-                        String num = h.substring(colon + 1).replaceAll("[^0-9]", "");
+                        String afterColon = h.substring(colon + 1);
+                        int end = 0;
+                        while (end < afterColon.length() && Character.isDigit(afterColon.charAt(end))) end++;
+                        String num = afterColon.substring(0, end);
                         return num.isEmpty() ? 0 : Integer.valueOf(num);
                     }).thenComparing(Comparator.naturalOrder()))
                     .collect(Collectors.toList());
