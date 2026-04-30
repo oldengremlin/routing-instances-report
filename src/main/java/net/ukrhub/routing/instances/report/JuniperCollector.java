@@ -41,13 +41,27 @@ public class JuniperCollector extends AbstractJuniperCollector {
             String inactive = (ri instanceof Element e) ? e.getAttribute("inactive") : "";
 
             String siteId = "";
-            if ("vpls".equals(type) && !rd.isEmpty()) {
-                siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
+            if ("vpls".equals(type)) {
+                if (!rd.isEmpty()) {
+                    siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
+                }
+                String routingIface = xp.evaluate("routing-interface/text()", ri).trim();
+                type = routingIface.isEmpty() ? "vpls/l2" : "vpls/l3";
+            }
+
+            NodeList ifaceNodes = (NodeList) xp.evaluate("interface", ri, XPathConstants.NODESET);
+            List<String> ifaces = new ArrayList<>();
+            for (int j = 0; j < ifaceNodes.getLength(); j++) {
+                Node iface = ifaceNodes.item(j);
+                String ifaceName = xp.evaluate("name/text()", iface).trim();
+                String ifaceInactive = (iface instanceof Element e) ? e.getAttribute("inactive") : "";
+                ifaces.add(ifaceName + ("inactive".equals(ifaceInactive) ? "(-)" : ""));
             }
 
             String hostEntry = hostname.toUpperCase()
                     + (!siteId.isEmpty() ? ":" + siteId : "")
-                    + ("inactive".equals(inactive) ? "(-)" : "");
+                    + ("inactive".equals(inactive) ? "(-)" : "")
+                    + (!ifaces.isEmpty() ? " → " + String.join(", ", ifaces) : "");
 
             RoutingInstance.merge(instances, vrfVplsList, name, type, rd, hostEntry);
         }

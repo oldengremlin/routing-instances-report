@@ -11,9 +11,9 @@ import java.util.*;
  * fetches via NETCONF independently.
  */
 @Log4j2
-public class JuniperConnectionsCollector extends AbstractJuniperCollector {
+public class JuniperSwitchCollector extends AbstractJuniperCollector {
 
-    public JuniperConnectionsCollector(String login, String pass) {
+    public JuniperSwitchCollector(String login, String pass) {
         super(login, pass);
     }
 
@@ -31,6 +31,7 @@ public class JuniperConnectionsCollector extends AbstractJuniperCollector {
         for (int i = 0; i < switches.getLength(); i++) {
             Node sw = switches.item(i);
             String name = xp.evaluate("name/text()", sw).trim();
+            String inactive = (sw instanceof Element e) ? e.getAttribute("inactive") : "";
 
             NodeList ifaceNodes = (NodeList) xp.evaluate(
                     "interface/name/text()", sw, XPathConstants.NODESET);
@@ -39,10 +40,12 @@ public class JuniperConnectionsCollector extends AbstractJuniperCollector {
                 ifaces.add(ifaceNodes.item(j).getNodeValue().trim());
             }
 
-            String hostEntry = routerName + "<br>" + String.join(", ", ifaces);
-            RoutingInstance.merge(instances, vrfVplsList, name, "connections", "", hostEntry);
+            String hostEntry = routerName
+                    + ("inactive".equals(inactive) ? "(-)" : "")
+                    + " → " + String.join(", ", ifaces);
+            RoutingInstance.merge(instances, vrfVplsList, name, "switch", "", hostEntry);
         }
 
-        log.info("Parsed {} connections from {}", switches.getLength(), hostname);
+        log.info("Parsed {} switches from {}", switches.getLength(), hostname);
     }
 }
