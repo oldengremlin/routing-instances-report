@@ -78,7 +78,7 @@ public class ReportGenerator {
         instances.values().forEach(ri -> {
             num[0]++;
             List<String> hosts = sortedHosts(ri);
-            String hostsSep = ri.getType().startsWith("BRIDGE") ? "<br>" : ", ";
+            String hostsSep = "<br>";
             log.info("[{}] {} {} {}",
                     String.format("%-4s", ri.getType()),
                     String.format("%-50s", ri.getName()),
