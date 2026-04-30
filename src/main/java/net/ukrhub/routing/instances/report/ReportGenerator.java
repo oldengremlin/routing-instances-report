@@ -84,17 +84,17 @@ public class ReportGenerator {
 
         instances.values().forEach(ri -> {
             num[0]++;
-            List<String> hosts = sortedHosts(ri);
+            List<String> resolvedHosts = sortedHosts(ri).stream()
+                    .map(h -> resolveIps(h, loAddresses))
+                    .collect(Collectors.toList());
             String hostsSep = "<br>";
             log.info("[{}] {} {} {}",
                     String.format("%-4s", ri.getType()),
                     String.format("%-50s", ri.getName()),
                     ri.getRd(),
-                    String.join(", ", hosts));
+                    String.join(", ", resolvedHosts));
 
-            String hostsHtml = hosts.stream()
-                    .map(h -> resolveIps(h, loAddresses))
-                    .collect(Collectors.joining(hostsSep));
+            String hostsHtml = String.join(hostsSep, resolvedHosts);
 
             sb.append(String.format(
                     sp + "<tr>"
