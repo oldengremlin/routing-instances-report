@@ -41,12 +41,18 @@ public class JuniperCollector extends AbstractJuniperCollector {
             String inactive = (ri instanceof Element e) ? e.getAttribute("inactive") : "";
 
             String siteId = "";
+            String routingIfaceStr = "";
+            String routingIfaceInactive = "";
             if ("vpls".equals(type)) {
                 if (!rd.isEmpty()) {
                     siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
                 }
-                String routingIface = xp.evaluate("routing-interface/text()", ri).trim();
-                type = routingIface.isEmpty() ? "vpls/l2" : "vpls/l3";
+                Node routingIfaceNode = (Node) xp.evaluate("routing-interface", ri, XPathConstants.NODE);
+                if (routingIfaceNode != null) {
+                    routingIfaceStr = routingIfaceNode.getTextContent().trim();
+                    routingIfaceInactive = (routingIfaceNode instanceof Element e) ? e.getAttribute("inactive") : "";
+                }
+                type = routingIfaceStr.isEmpty() ? "vpls/l2" : "vpls/l3";
             }
 
             NodeList ifaceNodes = (NodeList) xp.evaluate("interface", ri, XPathConstants.NODESET);
@@ -58,9 +64,12 @@ public class JuniperCollector extends AbstractJuniperCollector {
                 ifaces.add(ifaceName + ("inactive".equals(ifaceInactive) ? "(-)" : ""));
             }
 
+            String riPart = routingIfaceStr.isEmpty() ? ""
+                    : " → " + routingIfaceStr + ("inactive".equals(routingIfaceInactive) ? "(-)" : "");
             String hostEntry = hostname.toUpperCase()
                     + (!siteId.isEmpty() ? ":" + siteId : "")
                     + ("inactive".equals(inactive) ? "(-)" : "")
+                    + riPart
                     + (!ifaces.isEmpty() ? " → " + String.join(", ", ifaces) : "");
 
             RoutingInstance.merge(instances, vrfVplsList, name, type, rd, hostEntry);
