@@ -42,12 +42,20 @@ public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
                 ifaces.add(ifaceName + ("inactive".equals(ifaceInactive) ? "(-)" : ""));
             }
 
-            String routingIface = xp.evaluate("routing-interface/text()", domain).trim();
-            String type = routingIface.isEmpty() ? "bridge/l2" : "bridge/l3";
+            Node routingIfaceNode = (Node) xp.evaluate("routing-interface", domain, XPathConstants.NODE);
+            String routingIfaceStr = "";
+            String routingIfaceInactive = "";
+            if (routingIfaceNode != null) {
+                routingIfaceStr = routingIfaceNode.getTextContent().trim();
+                routingIfaceInactive = (routingIfaceNode instanceof Element e) ? e.getAttribute("inactive") : "";
+            }
+            String type = routingIfaceStr.isEmpty() ? "bridge/l2" : "bridge/l3";
 
+            String riPart = routingIfaceStr.isEmpty() ? ""
+                    : routingIfaceStr + ("inactive".equals(routingIfaceInactive) ? "(-)" : "") + " → ";
             String hostEntry = routerName
                     + (vlanId.isEmpty() ? "" : ", " + vlanId)
-                    + " → " + String.join(", ", ifaces);
+                    + " → " + riPart + String.join(", ", ifaces);
             RoutingInstance.merge(instances, vrfVplsList, name, type, "", hostEntry);
         }
 
