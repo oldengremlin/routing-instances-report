@@ -43,6 +43,9 @@ public class JuniperCollector extends AbstractJuniperCollector {
             String siteId = "";
             String routingIfaceStr = "";
             String routingIfaceInactive = "";
+            String vplsId = "";
+            String vlanId = "";
+            List<String> ldpNeighbors = new ArrayList<>();
             if ("vpls".equals(type)) {
                 if (!rd.isEmpty()) {
                     siteId = xp.evaluate("protocols/vpls/site/site-identifier/text()", ri).trim();
@@ -51,6 +54,15 @@ public class JuniperCollector extends AbstractJuniperCollector {
                 if (routingIfaceNode != null) {
                     routingIfaceStr = routingIfaceNode.getTextContent().trim();
                     routingIfaceInactive = (routingIfaceNode instanceof Element e) ? e.getAttribute("inactive") : "";
+                }
+                vplsId = xp.evaluate("protocols/vpls/vpls-id/text()", ri).trim();
+                vlanId = xp.evaluate("vlan-id/text()", ri).trim();
+                NodeList neighborNodes = (NodeList) xp.evaluate(
+                        "protocols/vpls/neighbor | protocols/vpls/mesh-group/neighbor",
+                        ri, XPathConstants.NODESET);
+                for (int j = 0; j < neighborNodes.getLength(); j++) {
+                    String nip = xp.evaluate("name/text()", neighborNodes.item(j)).trim();
+                    if (!nip.isEmpty()) ldpNeighbors.add(nip);
                 }
                 type = routingIfaceStr.isEmpty() ? "vpls/l2" : "vpls/l3";
             }
@@ -64,13 +76,18 @@ public class JuniperCollector extends AbstractJuniperCollector {
                 ifaces.add(ifaceName + ("inactive".equals(ifaceInactive) ? "(-)" : ""));
             }
 
+            String idsPart = (vplsId.isEmpty() ? "" : " (" + vplsId + ")")
+                    + (vlanId.isEmpty() ? "" : " (" + vlanId + ")");
             String riPart = routingIfaceStr.isEmpty() ? ""
                     : " → " + routingIfaceStr + ("inactive".equals(routingIfaceInactive) ? "(-)" : "");
+            String neighborsPart = ldpNeighbors.isEmpty() ? "" : " → " + String.join(", ", ldpNeighbors);
             String hostEntry = hostname.toUpperCase()
                     + (!siteId.isEmpty() ? ":" + siteId : "")
                     + ("inactive".equals(inactive) ? "(-)" : "")
+                    + idsPart
                     + riPart
-                    + (!ifaces.isEmpty() ? " → " + String.join(", ", ifaces) : "");
+                    + (!ifaces.isEmpty() ? " → " + String.join(", ", ifaces) : "")
+                    + neighborsPart;
 
             RoutingInstance.merge(instances, vrfVplsList, name, type, rd, hostEntry);
         }
