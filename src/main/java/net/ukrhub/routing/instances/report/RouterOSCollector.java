@@ -16,11 +16,11 @@ import java.util.regex.*;
  * a trailing backslash ({@code \}) on all but the last line; this collector
  * reassembles them before matching.</p>
  *
- * <p>A complete VRF entry is a line matching:
+ * <p>A complete VRF entry is a line matching:</p>
  * <pre>
  *   /ip route vrf add ... route-distinguisher=AS:ID ... routing-mark=NAME
  * </pre>
- * and is merged with type {@code VRF}.</p>
+ * <p>and is merged with type {@code VRF}.</p>
  */
 @Log4j2
 public class RouterOSCollector implements Collector {
@@ -29,6 +29,8 @@ public class RouterOSCollector implements Collector {
     private final String pass;
 
     /**
+     * Creates a new collector with the given SSH credentials.
+     *
      * @param login SSH username
      * @param pass  SSH password
      */

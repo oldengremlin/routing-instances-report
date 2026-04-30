@@ -29,10 +29,11 @@ import java.util.*;
  *
  * <h2>Environment variables</h2>
  * <table border="1">
+ *   <caption>Environment variables</caption>
  *   <tr><th>Variable</th><th>Required</th><th>Default</th></tr>
- *   <tr><td>{@code ROUTER_USER}</td><td>yes</td><td>—</td></tr>
- *   <tr><td>{@code ROUTER_PASS}</td><td>yes</td><td>—</td></tr>
- *   <tr><td>{@code CISCO_ENABLE}</td><td>if CISCO_HOSTS set</td><td>—</td></tr>
+ *   <tr><td>{@code ROUTER_USER}</td><td>yes</td><td>&#8212;</td></tr>
+ *   <tr><td>{@code ROUTER_PASS}</td><td>yes</td><td>&#8212;</td></tr>
+ *   <tr><td>{@code CISCO_ENABLE}</td><td>if CISCO_HOSTS set</td><td>&#8212;</td></tr>
  *   <tr><td>{@code JUNIPER_HOSTS}</td><td>no</td><td>(empty)</td></tr>
  *   <tr><td>{@code CISCO_HOSTS}</td><td>no</td><td>(empty)</td></tr>
  *   <tr><td>{@code ROUTEROS_HOSTS}</td><td>no</td><td>(empty)</td></tr>
@@ -43,6 +44,8 @@ import java.util.*;
  */
 @Log4j2
 public class RoutingInstancesReport {
+
+    private RoutingInstancesReport() {}
 
     /**
      * Application entry point.
