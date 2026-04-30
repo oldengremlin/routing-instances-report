@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
 import java.util.stream.*;
+import java.util.function.*;
 
 @Log4j2
 public class ReportGenerator {
@@ -32,12 +33,17 @@ public class ReportGenerator {
 </html>
 """;
 
+    private static final Pattern IP_PATTERN = Pattern.compile(
+            "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}" +
+            "|(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)(?:\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)){3}");
+
     public static void generate(Map<String, RoutingInstance> instances,
                                 Map<String, Map<String, String>> vrfVplsList,
-                                String outputPath) throws IOException {
+                                String outputPath,
+                                Map<String, String> loAddresses) throws IOException {
         String html = HTML_TEMPLATE
                 .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + "    <!--VRFVPLSLIST-->")
-                .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances) + "\t    <!--VRFVPLSINFO-->")
+                .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances, loAddresses) + "\t    <!--VRFVPLSINFO-->")
                 .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         log.info("Writing report to {} ({} entries)", outputPath, instances.size());
@@ -70,7 +76,8 @@ public class ReportGenerator {
         return sb.toString();
     }
 
-    private static String buildVrfInfo(Map<String, RoutingInstance> instances) {
+    private static String buildVrfInfo(Map<String, RoutingInstance> instances,
+                                       Map<String, String> loAddresses) {
         StringBuilder sb = new StringBuilder();
         String sp = "\t    ";
         int[] num = {0};
@@ -85,6 +92,10 @@ public class ReportGenerator {
                     ri.getRd(),
                     String.join(", ", hosts));
 
+            String hostsHtml = hosts.stream()
+                    .map(h -> resolveIps(h, loAddresses))
+                    .collect(Collectors.joining(hostsSep));
+
             sb.append(String.format(
                     sp + "<tr>"
                     + "<td style=\"vertical-align: top; text-align: right;\">%d</td>"
@@ -97,9 +108,17 @@ public class ReportGenerator {
                     ri.getType(),
                     ri.getHrefname(), ri.getName(),
                     ri.getName(), ri.getRd(),
-                    String.join(hostsSep, hosts)));
+                    hostsHtml));
         });
         return sb.toString();
+    }
+
+    private static String resolveIps(String s, Map<String, String> loAddresses) {
+        if (loAddresses.isEmpty()) return s;
+        return IP_PATTERN.matcher(s).replaceAll(mr -> {
+            String name = loAddresses.get(mr.group());
+            return name != null ? Matcher.quoteReplacement(name + "/" + mr.group()) : mr.group();
+        });
     }
 
     private static List<String> sortedHosts(RoutingInstance ri) {

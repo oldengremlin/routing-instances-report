@@ -68,8 +68,12 @@ public class RoutingInstancesReport {
         }
 
         log.info("Collection complete: {} instances total", instances.size());
+
+        Map<String, String> loAddresses = LoAddressMapper.build(juniperHosts);
+        log.info("Built lo0 address map: {} entries", loAddresses.size());
+
         try {
-            ReportGenerator.generate(instances, vrfVplsList, reportPath);
+            ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses);
         } catch (IOException e) {
             log.error("Failed to write report to {}: {}", reportPath, e.getMessage());
         }
