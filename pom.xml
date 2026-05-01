@@ -93,4 +93,63 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Regenerate docs/classes.svg from src/plantuml/classes.puml:
+                mvn -P uml generate-resources
+            Requires: Java (already required), downloads plantuml.jar automatically.
+        -->
+        <profile>
+            <id>uml</id>
+            <build>
+                <plugins>
+                    <!-- Step 1: download plantuml standalone jar into target/ -->
+                    <plugin>
+                        <groupId>com.googlecode.maven-download-plugin</groupId>
+                        <artifactId>download-maven-plugin</artifactId>
+                        <version>1.9.0</version>
+                        <executions>
+                            <execution>
+                                <id>download-plantuml</id>
+                                <phase>generate-resources</phase>
+                                <goals><goal>wget</goal></goals>
+                                <configuration>
+                                    <url>https://github.com/plantuml/plantuml/releases/download/v1.2025.2/plantuml-1.2025.2.jar</url>
+                                    <outputDirectory>${project.build.directory}</outputDirectory>
+                                    <outputFileName>plantuml.jar</outputFileName>
+                                    <skipCache>false</skipCache>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Step 2: render src/plantuml/*.puml → docs/*.svg -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.5.1</version>
+                        <executions>
+                            <execution>
+                                <id>render-plantuml</id>
+                                <phase>generate-resources</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <executable>java</executable>
+                                    <arguments>
+                                        <argument>-jar</argument>
+                                        <argument>${project.build.directory}/plantuml.jar</argument>
+                                        <argument>-tsvg</argument>
+                                        <argument>-o</argument>
+                                        <argument>${project.basedir}/docs</argument>
+                                        <argument>${project.basedir}/src/plantuml/classes.puml</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
