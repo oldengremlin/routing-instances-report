@@ -19,12 +19,13 @@ import java.util.*;
  *   <li>Domain with {@code <routing-interface>} → {@code BRIDGE/L3}</li>
  * </ul>
  *
- * <p>Per-interface inactive state (attribute {@code inactive="inactive"}) is
- * marked with {@code (-)} after the interface name. A deactivated
- * {@code routing-interface} is marked with {@code (-)} after the IRB name.</p>
+ * <p>Inactive state (attribute {@code inactive="inactive"}) is handled at
+ * three levels: the whole {@code domain} node marks the router name with
+ * {@code (-)}, a deactivated {@code routing-interface} marks the IRB name,
+ * and per-interface inactive marks the individual interface name.</p>
  *
  * <p>Host entry format:
- * {@code ROUTER[, vlan-id] → [irb[(−)] →] iface1, iface2[(−)], …}</p>
+ * {@code ROUTER[(−)][, vlan-id] → [irb[(−)] →] iface1, iface2[(−)], …}</p>
  */
 @Log4j2
 public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
@@ -54,6 +55,7 @@ public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
             Node domain = domains.item(i);
             String name = xp.evaluate("name/text()", domain).trim();
             String vlanId = xp.evaluate("vlan-id/text()", domain).trim();
+            String inactive = (domain instanceof Element e) ? e.getAttribute("inactive") : "";
 
             NodeList ifaceNodes = (NodeList) xp.evaluate("interface", domain, XPathConstants.NODESET);
             List<String> ifaces = new ArrayList<>();
@@ -76,6 +78,7 @@ public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
             String riPart = routingIfaceStr.isEmpty() ? ""
                     : routingIfaceStr + ("inactive".equals(routingIfaceInactive) ? "(-)" : "") + " → ";
             String hostEntry = routerName
+                    + ("inactive".equals(inactive) ? "(-)" : "")
                     + (vlanId.isEmpty() ? "" : ", " + vlanId)
                     + " → " + riPart + String.join(", ", ifaces);
             RoutingInstance.merge(instances, vrfVplsList, name, type, "", hostEntry);
