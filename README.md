@@ -140,6 +140,21 @@ environment:
   LOG_LEVEL: debug
 ```
 
+## Діаграма класів
+
+![Діаграма класів](docs/classes.svg)
+
+Діаграма генерується автоматично з `src/plantuml/classes.puml`:
+
+```bash
+mvn -P uml generate-resources
+# результат: docs/classes.svg
+```
+
+Потребує Java і доступу до інтернету для завантаження `plantuml.jar` (один раз,
+кешується у `~/.m2/`). Graphviz встановлювати не потрібно на macOS/Windows;
+на Linux: `sudo apt install graphviz` або `sudo dnf install graphviz`.
+
 ## Структура проєкту
 
 ```

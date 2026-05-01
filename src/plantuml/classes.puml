@@ -1,0 +1,120 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam class {
+    BackgroundColor White
+    BorderColor #555555
+    ArrowColor #555555
+}
+skinparam interface {
+    BackgroundColor #E8F4E8
+    BorderColor #555555
+}
+skinparam abstract {
+    BackgroundColor #FFF8E0
+    BorderColor #555555
+}
+
+interface Collector <<interface>> {
+    +collect(hostname: String,\n         instances: Map,\n         vrfVplsList: Map): void
+}
+
+abstract class AbstractJuniperCollector {
+    -login: String
+    -pass: String
+    --
+    #readOrFetch(hostname: String): String
+    #parseXml(xml: String): Document
+    #extractRouterName(doc, xp, fallback): String
+    #fetchNetconf(hostname: String): String
+}
+
+class JuniperCollector {
+    +collect(...)
+}
+
+class JuniperSwitchCollector {
+    +collect(...)
+}
+
+class JuniperL2circuitCollector {
+    +collect(...)
+}
+
+class JuniperBridgedomainsCollector {
+    +collect(...)
+}
+
+class CiscoCollector {
+    -login: String
+    -pass: String
+    -enablePass: String
+    --
+    +collect(...)
+}
+
+class RouterOSCollector {
+    -login: String
+    -pass: String
+    --
+    +collect(...)
+}
+
+class RoutingInstance {
+    -name: String
+    -type: String
+    -rd: String
+    -hrefname: String
+    -hosts: List<String>
+    --
+    +{static} merge(instances, vrfVplsList,\n                name, type, rd,\n                hostEntry): void
+}
+
+class HashUtils {
+    +{static} computeKey(paddedName: String,\n                       type: String): String
+}
+
+class LoAddressMapper {
+    +{static} build(hosts: List<String>): Map<String, String>
+}
+
+class ReportGenerator {
+    +{static} generate(instances: Map,\n                      vrfVplsList: Map,\n                      outputPath: String,\n                      loAddresses: Map): void
+}
+
+class RoutingInstancesReport {
+    +{static} main(args: String[]): void
+}
+
+Collector <|.. AbstractJuniperCollector
+Collector <|.. CiscoCollector
+Collector <|.. RouterOSCollector
+
+AbstractJuniperCollector <|-- JuniperCollector
+AbstractJuniperCollector <|-- JuniperSwitchCollector
+AbstractJuniperCollector <|-- JuniperL2circuitCollector
+AbstractJuniperCollector <|-- JuniperBridgedomainsCollector
+
+RoutingInstancesReport --> "4" AbstractJuniperCollector : creates
+RoutingInstancesReport --> CiscoCollector : creates
+RoutingInstancesReport --> RouterOSCollector : creates
+RoutingInstancesReport --> LoAddressMapper : uses
+RoutingInstancesReport --> ReportGenerator : uses
+
+ReportGenerator --> RoutingInstance : reads
+
+JuniperCollector ..> RoutingInstance : merge()
+JuniperSwitchCollector ..> RoutingInstance : merge()
+JuniperL2circuitCollector ..> RoutingInstance : merge()
+JuniperBridgedomainsCollector ..> RoutingInstance : merge()
+CiscoCollector ..> RoutingInstance : merge()
+RouterOSCollector ..> RoutingInstance : merge()
+
+RoutingInstance ..> HashUtils : computeKey()
+
+note bottom of JuniperCollector
+  Reads /tmp/juniper-HOST.xml
+  from JuniperCollector cache
+end note
+
+@enduml
