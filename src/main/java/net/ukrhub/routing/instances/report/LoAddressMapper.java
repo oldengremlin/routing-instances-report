@@ -1,3 +1,17 @@
+/*
+ * Copyright 2025 Ukrcom
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package net.ukrhub.routing.instances.report;
 
 import lombok.extern.log4j.Log4j2;
@@ -40,7 +54,8 @@ class LoAddressMapper {
     /** Matches the {@code -re0} / {@code -re1} routing-engine suffix in JunOS hostnames. */
     private static final Pattern RE_SUFFIX = Pattern.compile("-re\\d+$", Pattern.CASE_INSENSITIVE);
 
-    private LoAddressMapper() {}
+    private LoAddressMapper() {
+    }
 
     /**
      * Reads {@code /tmp/juniper-HOST.xml} for each host in {@code hosts} and

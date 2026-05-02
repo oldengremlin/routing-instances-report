@@ -1,3 +1,17 @@
+/*
+ * Copyright 2025 Ukrcom
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations
+ * under the License.
+ */
 package net.ukrhub.routing.instances.report;
 
 import lombok.extern.log4j.Log4j2;
@@ -32,7 +46,8 @@ import java.util.function.*;
 @Log4j2
 public class ReportGenerator {
 
-    private ReportGenerator() {}
+    private ReportGenerator() {
+    }
 
     private static final String HTML_TEMPLATE = """
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
@@ -57,8 +72,8 @@ public class ReportGenerator {
 
     /** Matches IPv4 and IPv6 addresses inside host entry strings. */
     private static final Pattern IP_PATTERN = Pattern.compile(
-            "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}" +
-            "|(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)(?:\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)){3}");
+            "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}"
+            + "|(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)(?:\\.(?:25[0-5]|2[0-4]\\d|[01]?\\d\\d?)){3}");
 
     /** Matches instance names of the form {@code DIGITS/...} (L2CIRCUIT, secondary VPLS). */
     private static final Pattern VCID_PAT = Pattern.compile("^(\\d+)/");
@@ -146,7 +161,9 @@ public class ReportGenerator {
                 counts.merge(vcid, 1, Integer::sum);
             }
         });
-        if (counts.isEmpty()) return "";
+        if (counts.isEmpty()) {
+            return "";
+        }
 
         StringBuilder sb = new StringBuilder("    <p><h1>Список VC-ID/VPLS-ID</h1><ol>\n");
         counts.entrySet().stream()
@@ -225,7 +242,9 @@ public class ReportGenerator {
      * @return             string with recognised addresses substituted
      */
     private static String resolveIps(String s, Map<String, String> loAddresses) {
-        if (loAddresses.isEmpty()) return s;
+        if (loAddresses.isEmpty()) {
+            return s;
+        }
         return IP_PATTERN.matcher(s).replaceAll(mr -> {
             String name = loAddresses.get(mr.group());
             return name != null ? Matcher.quoteReplacement(name + "/" + mr.group()) : mr.group();
