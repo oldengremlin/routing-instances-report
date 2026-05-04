@@ -144,11 +144,12 @@ environment:
 
 ![Діаграма класів](docs/classes.svg)
 
-Діаграма генерується автоматично з `src/plantuml/classes.puml`:
+Діаграма і Javadoc перегенеруються однією командою:
 
 ```bash
-mvn -P uml generate-resources
-# результат: docs/classes.svg
+mvn -P docs generate-resources
+# результат: docs/classes.svg  (PlantUML)
+#            target/reports/apidocs/  (Javadoc)
 ```
 
 Потребує Java і доступу до інтернету для завантаження `plantuml.jar` (один раз,
