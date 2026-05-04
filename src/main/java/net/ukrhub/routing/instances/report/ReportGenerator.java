@@ -98,8 +98,8 @@ public class ReportGenerator {
         String html = HTML_TEMPLATE
                 .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + buildVcidList(instances) + "    <!--VRFVPLSLIST-->")
                 .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances, loAddresses) + "\t    <!--VRFVPLSINFO-->")
-                .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->")
-                .replace("    <!--ORPHANTABLE-->", buildOrphanTable(orphans));
+                .replace("    <!--ORPHANTABLE-->", buildOrphanTable(orphans))
+                .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         log.info("Writing report to {} ({} entries)", outputPath, instances.size());
         try (PrintWriter pw = new PrintWriter(
@@ -283,12 +283,12 @@ public class ReportGenerator {
     }
 
     /**
-     * Builds the orphan/unpaired L2CIRCUIT table (section 4).
+     * Builds the orphan/unpaired L2CIRCUIT and VPLS table (section 4).
      *
-     * <p>Renders a table listing L2CIRCUIT entries that have no valid reverse
-     * peer as detected by
-     * {@code RoutingInstancesReport.findL2circuitOrphans}. Returns an empty
-     * string when {@code orphans} is empty.</p>
+     * <p>Renders a table listing L2CIRCUIT and VPLS secondary entries that
+     * have no valid reverse peer, as detected by
+     * {@code RoutingInstancesReport.findOrphans}. Returns an empty string
+     * when {@code orphans} is empty.</p>
      *
      * <p>Each row contains five columns: Type, VC-ID, Router, Neighbor info,
      * and the mismatch category note.</p>
@@ -301,7 +301,7 @@ public class ReportGenerator {
             return "";
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("    <h2>L2CIRCUIT без пар</h2>\n");
+        sb.append("    <h2>L2CIRCUIT/VPLS без пар</h2>\n");
         sb.append("    <table border=\"1\" cellpadding=\"2\" cellspacing=\"0\">\n");
         sb.append("\t<tbody>\n");
         sb.append("\t    <tr>"
