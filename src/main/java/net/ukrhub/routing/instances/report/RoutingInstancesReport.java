@@ -192,11 +192,11 @@ public class RoutingInstancesReport {
         // instance name → [type, ip1, ip2, …] (neighbor IPs from last " → " segment)
         Map<String, String[]> entryMap = new LinkedHashMap<>();
 
-        instances.forEach((key, ri) -> {
+        for (RoutingInstance ri : instances.values()) {
             String t = ri.getType();
-            if (!t.equals("L2CIRCUIT") && !t.startsWith("VPLS")) return;
+            if (!t.equals("L2CIRCUIT") && !t.startsWith("VPLS")) continue;
             Matcher m = namePattern.matcher(ri.getName());
-            if (!m.matches()) return;
+            if (!m.matches()) continue;
 
             String vcId = m.group(1);
             String localRouter = stripVplsSuffix(m.group(2), reSuffix);
@@ -217,15 +217,15 @@ public class RoutingInstancesReport {
                 for (int i = 0; i < ips.size(); i++) entry[i + 1] = ips.get(i);
                 entryMap.put(ri.getName(), entry);
             }
-        });
+        }
 
         List<String[]> orphans = new ArrayList<>();
 
-        entryMap.forEach((name, entry) -> {
+        for (var e : entryMap.entrySet()) {
+            String name = e.getKey();
+            String[] entry = e.getValue();
             Matcher m = namePattern.matcher(name);
-            if (!m.matches()) {
-                return;
-            }
+            if (!m.matches()) continue;
             String vcId = m.group(1);
             String localRouter = stripVplsSuffix(m.group(2), reSuffix);
             String type = entry[0];
@@ -242,7 +242,7 @@ public class RoutingInstancesReport {
                     }
                 }
             }
-        });
+        }
 
         return orphans;
     }
