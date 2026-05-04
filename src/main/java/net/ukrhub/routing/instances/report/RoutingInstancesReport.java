@@ -223,7 +223,9 @@ public class RoutingInstancesReport {
 
         entryMap.forEach((name, entry) -> {
             Matcher m = namePattern.matcher(name);
-            if (!m.matches()) return;
+            if (!m.matches()) {
+                return;
+            }
             String vcId = m.group(1);
             String localRouter = stripVplsSuffix(m.group(2), reSuffix);
             String type = entry[0];
