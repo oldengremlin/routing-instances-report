@@ -29,7 +29,7 @@ import java.util.regex.*;
  * <h2>Collection order</h2>
  * <ol>
  *   <li>{@link JuniperCollector} — fetches XML via NETCONF and writes
- *       {@code /tmp/juniper-HOST.xml}; must run before the other three
+ *       {@code $DUMP_DIR/juniper-HOST.xml}; must run before the other three
  *       Juniper collectors so they can reuse the dump.</li>
  *   <li>{@link JuniperSwitchCollector} — reads the cached dump.</li>
  *   <li>{@link JuniperL2circuitCollector} — reads the cached dump.</li>
@@ -53,6 +53,7 @@ import java.util.regex.*;
  *   <tr><td>{@code CISCO_HOSTS}</td><td>no</td><td>(empty)</td></tr>
  *   <tr><td>{@code ROUTEROS_HOSTS}</td><td>no</td><td>(empty)</td></tr>
  *   <tr><td>{@code REPORT_PATH}</td><td>no</td><td>{@code /usr/share/nginx/html/index.html}</td></tr>
+ *   <tr><td>{@code DUMP_DIR}</td><td>no</td><td>{@code /tmp}</td></tr>
  *   <tr><td>{@code LOG_LEVEL}</td><td>no</td><td>{@code info}</td></tr>
  *   <tr><td>{@code OPENCHANNEL}</td><td>no</td><td>{@code subsystem-netconf}</td></tr>
  * </table>

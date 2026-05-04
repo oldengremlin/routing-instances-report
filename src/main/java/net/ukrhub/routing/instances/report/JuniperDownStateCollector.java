@@ -117,7 +117,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * Falls back to the uppercased hostname when the dump is absent.
      */
     private String resolveRouterName(String hostname) {
-        Path dump = Path.of("/tmp/juniper-" + hostname + ".xml");
+        Path dump = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
         if (Files.exists(dump)) {
             try {
                 String xml = Files.readString(dump, StandardCharsets.UTF_8);

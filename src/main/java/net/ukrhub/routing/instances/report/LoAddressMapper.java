@@ -71,7 +71,7 @@ class LoAddressMapper {
     static Map<String, String> build(List<String> hosts) {
         Map<String, String> result = new HashMap<>();
         for (String host : hosts) {
-            Path dumpFile = Path.of("/tmp/juniper-" + host + ".xml");
+            Path dumpFile = Path.of(AbstractJuniperCollector.DUMP_DIR, "juniper-" + host + ".xml");
             if (!Files.exists(dumpFile)) {
                 log.debug("No dump for lo0 extraction: {}", dumpFile);
                 continue;
