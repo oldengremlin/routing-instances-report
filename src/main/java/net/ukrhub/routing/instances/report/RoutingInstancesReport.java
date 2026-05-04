@@ -117,12 +117,7 @@ public class RoutingInstancesReport {
         log.info("Built lo0 address map: {} entries", loAddresses.size());
 
         List<String[]> orphans = findOrphans(instances, loAddresses);
-        if (!orphans.isEmpty()) {
-            log.info("L2CIRCUIT/VPLS orphan check: {} unpaired entries found", orphans.size());
-            orphans.forEach(o -> log.info("  orphan: type={} vcId={} router={} neighbor={} ({})", o[0], o[1], o[2], o[3], o[4]));
-        } else {
-            log.info("L2CIRCUIT/VPLS orphan check: all pairs OK");
-        }
+        log.info("L2CIRCUIT/VPLS orphan check: {} unpaired entries found", orphans.size());
 
         List<String[]> downConnections = new ArrayList<>();
         JuniperDownStateCollector downCollector = new JuniperDownStateCollector(login, pass);
@@ -134,9 +129,7 @@ public class RoutingInstancesReport {
                 log.error("DownState {} failed: {}", host, ex.getMessage(), ex);
             }
         }
-        if (!downConnections.isEmpty()) {
-            log.info("Down state check: {} connections down total", downConnections.size());
-        }
+        log.info("Down state check: {} connections down total", downConnections.size());
 
         try {
             ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses, orphans, downConnections);

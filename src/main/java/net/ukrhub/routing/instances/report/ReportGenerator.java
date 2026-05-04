@@ -105,6 +105,14 @@ public class ReportGenerator {
                 .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         log.info("Writing report to {} ({} entries)", outputPath, instances.size());
+        if (!orphans.isEmpty()) {
+            log.info("L2CIRCUIT/VPLS без пар: {} записів", orphans.size());
+            orphans.forEach(o -> log.info("  без пар: {} | {} | {} | {} | {}", o[0], o[1], o[2], o[3], o[4]));
+        }
+        if (!downConnections.isEmpty()) {
+            log.info("L2CIRCUIT/VPLS неактивний стан: {} з'єднань", downConnections.size());
+            downConnections.forEach(r -> log.info("  down: {} | {} | {} | {} | {} | {}", r[0], r[1], r[2], r[3], r[4], r[5]));
+        }
         try (PrintWriter pw = new PrintWriter(
                 new OutputStreamWriter(new FileOutputStream(outputPath), StandardCharsets.UTF_8))) {
             pw.print(html);
