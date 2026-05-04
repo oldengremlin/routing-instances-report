@@ -82,8 +82,9 @@ VRF, що присутній на кількох маршрутизаторах,
   NETCONF RPC `get-l2ckt-connection-information<down/>` та `get-vpls-connection-information<down/>`;
   колонки: Тип | Маршрутизатор | VC-ID/VPLS-ID | Instance | Neighbor/Site | Статус.
 
-Сирі XML/config-дампи зберігаються у `/tmp/juniper-<host>.xml` і
-`/tmp/cisco-<host>.conf` — зручно для налагодження.
+Сирі XML/config-дампи зберігаються у `$DUMP_DIR/juniper-<host>.xml` і
+`/tmp/cisco-<host>.conf` — зручно для налагодження. Juniper-дамп записується
+атомарно (write-then-rename), тому читачі ніколи не бачать частково записаного файлу.
 
 ## Логування
 
@@ -209,6 +210,7 @@ routing-instances-report/
 | `CISCO_HOSTS`    | ні               | Cisco-хости через кому |
 | `ROUTEROS_HOSTS` | ні               | MikroTik-хости через кому |
 | `REPORT_PATH`    | ні               | Шлях до HTML-файлу звіту (за замовчуванням: `/usr/share/nginx/html/index.html`) |
+| `DUMP_DIR`       | ні               | Каталог для XML-дампів Juniper (за замовчуванням: `/tmp`) |
 | `LOG_LEVEL`      | ні               | Рівень Log4j2: `trace` `debug` `info` `warn` `error` (за замовчуванням: `info`) |
 | `OPENCHANNEL`    | ні               | Тип SSH-каналу для Juniper: `subsystem-netconf` (за замовчуванням) або `exec` |
 

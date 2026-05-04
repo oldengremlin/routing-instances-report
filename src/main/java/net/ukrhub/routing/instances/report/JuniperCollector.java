@@ -72,8 +72,16 @@ public class JuniperCollector extends AbstractJuniperCollector {
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         String xmlResponse = fetchNetconf(hostname);
 
-        Path dumpFile = Path.of("/tmp/juniper-" + hostname + ".xml");
-        Files.writeString(dumpFile, xmlResponse, StandardCharsets.UTF_8);
+        Path dumpFile = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
+        Path tmp = Files.createTempFile(Path.of(DUMP_DIR), "juniper-" + hostname + "-", ".xml");
+        boolean moved = false;
+        try {
+            Files.writeString(tmp, xmlResponse, StandardCharsets.UTF_8);
+            Files.move(tmp, dumpFile, StandardCopyOption.ATOMIC_MOVE);
+            moved = true;
+        } finally {
+            if (!moved) Files.deleteIfExists(tmp);
+        }
         log.debug("Configuration saved to {}", dumpFile);
 
         var doc = parseXml(xmlResponse);

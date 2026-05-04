@@ -64,6 +64,16 @@ abstract class AbstractJuniperCollector implements Collector {
 
     protected static final String DELIM = "]]>]]>";
 
+    /**
+     * Directory where Juniper XML configuration dumps are written and read.
+     * Defaults to {@code /tmp}; overridden by the {@code DUMP_DIR} environment variable.
+     */
+    static final String DUMP_DIR;
+    static {
+        String d = System.getenv("DUMP_DIR");
+        DUMP_DIR = (d != null && !d.isBlank()) ? d : "/tmp";
+    }
+
     private static final String NETCONF_HELLO
             = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -116,7 +126,7 @@ abstract class AbstractJuniperCollector implements Collector {
      * @throws Exception on I/O or SSH error
      */
     protected String readOrFetch(String hostname) throws Exception {
-        Path dumpFile = Path.of("/tmp/juniper-" + hostname + ".xml");
+        Path dumpFile = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
         if (Files.exists(dumpFile)) {
             log.debug("Using cached dump from {}", dumpFile);
             return Files.readString(dumpFile, StandardCharsets.UTF_8);
