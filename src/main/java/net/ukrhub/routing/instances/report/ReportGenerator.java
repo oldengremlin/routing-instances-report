@@ -344,11 +344,12 @@ public class ReportGenerator {
         List<String[]> sorted = new ArrayList<>(downConnections);
         sorted.sort(Comparator
                 .<String[], String>comparing(r -> r[0])
+                .thenComparing(r -> r[1])
                 .thenComparingInt(r -> {
-                    try { return Integer.parseInt(r[1]); }
+                    try { return Integer.parseInt(r[2]); }
                     catch (NumberFormatException e) { return 0; }
                 })
-                .thenComparing(r -> r[2]));
+                .thenComparing(r -> r[3]));
 
         StringBuilder sb = new StringBuilder();
         sb.append("    <h2>L2CIRCUIT/VPLS неактивний стан</h2>\n");
@@ -356,6 +357,7 @@ public class ReportGenerator {
         sb.append("\t<tbody>\n");
         sb.append("\t    <tr>"
                 + "<th>Тип</th>"
+                + "<th>Маршрутизатор</th>"
                 + "<th>VC-ID/VPLS-ID</th>"
                 + "<th>Instance</th>"
                 + "<th>Neighbor/Site</th>"
@@ -363,8 +365,8 @@ public class ReportGenerator {
                 + "</tr>\n");
         for (String[] r : sorted) {
             sb.append(String.format(
-                    "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-                    r[0], r[1], r[2], r[3], r[4]));
+                    "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                    r[0], r[1], r[2], r[3], r[4], r[5]));
         }
         sb.append("\t</tbody>\n");
         sb.append("    </table>\n");
