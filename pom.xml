@@ -96,12 +96,12 @@
 
     <profiles>
         <!--
-            Regenerate docs/classes.svg from src/plantuml/classes.puml:
-                mvn -P uml generate-resources
+            Regenerate docs/classes.svg (PlantUML) and target/reports/apidocs (Javadoc):
+                mvn -P docs generate-resources
             Requires: Java (already required), downloads plantuml.jar automatically.
         -->
         <profile>
-            <id>uml</id>
+            <id>docs</id>
             <build>
                 <plugins>
                     <!-- Step 1: download plantuml standalone jar into target/ -->
@@ -148,6 +148,21 @@
                                         <argument>${project.basedir}/src/plantuml/classes.puml</argument>
                                     </arguments>
                                 </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- Step 3: generate Javadoc → target/reports/apidocs -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <executions>
+                            <execution>
+                                <id>generate-javadoc</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>javadoc</goal>
+                                </goals>
                             </execution>
                         </executions>
                     </plugin>
