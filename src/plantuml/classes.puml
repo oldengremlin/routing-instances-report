@@ -14,6 +14,10 @@ skinparam abstract {
     BackgroundColor #FFF8E0
     BorderColor #555555
 }
+skinparam enum {
+    BackgroundColor #F0E8FF
+    BorderColor #555555
+}
 
 interface Collector <<interface>> {
     +collect(hostname: String,\n         instances: Map,\n         vrfVplsList: Map): void
@@ -27,6 +31,7 @@ abstract class AbstractJuniperCollector {
     #parseXml(xml: String): Document
     #extractRouterName(doc, xp, fallback): String
     #fetchNetconf(hostname: String): String
+    #fetchRpcs(hostname: String,\n           rpcs: List<String>): List<String>
 }
 
 class JuniperCollector {
@@ -43,6 +48,10 @@ class JuniperL2circuitCollector {
 
 class JuniperBridgedomainsCollector {
     +collect(...)
+}
+
+class JuniperDownStateCollector {
+    +collectDownState(hostname: String,\n                   loAddresses: Map): List<String[]>
 }
 
 class CiscoCollector {
@@ -78,12 +87,19 @@ class LoAddressMapper {
     +{static} build(hosts: List<String>): Map<String, String>
 }
 
+enum ConnectionStatus {
+    EI, NP, MM, OL, RD, LD\n NP, VM, BK, ST, ...
+    --
+    +{static} describe(code: String): String
+}
+
 class ReportGenerator {
-    +{static} generate(instances: Map,\n                      vrfVplsList: Map,\n                      outputPath: String,\n                      loAddresses: Map): void
+    +{static} generate(instances: Map,\n                      vrfVplsList: Map,\n                      outputPath: String,\n                      loAddresses: Map,\n                      orphans: List,\n                      downConnections: List): void
 }
 
 class RoutingInstancesReport {
     +{static} main(args: String[]): void
+    -{static} findOrphans(instances: Map,\n                       loAddresses: Map): List<String[]>
 }
 
 Collector <|.. AbstractJuniperCollector
@@ -94,8 +110,10 @@ AbstractJuniperCollector <|-- JuniperCollector
 AbstractJuniperCollector <|-- JuniperSwitchCollector
 AbstractJuniperCollector <|-- JuniperL2circuitCollector
 AbstractJuniperCollector <|-- JuniperBridgedomainsCollector
+AbstractJuniperCollector <|-- JuniperDownStateCollector
 
 RoutingInstancesReport --> "4" AbstractJuniperCollector : creates
+RoutingInstancesReport --> JuniperDownStateCollector : creates
 RoutingInstancesReport --> CiscoCollector : creates
 RoutingInstancesReport --> RouterOSCollector : creates
 RoutingInstancesReport --> LoAddressMapper : uses
@@ -110,11 +128,14 @@ JuniperBridgedomainsCollector ..> RoutingInstance : merge()
 CiscoCollector ..> RoutingInstance : merge()
 RouterOSCollector ..> RoutingInstance : merge()
 
+JuniperDownStateCollector ..> ConnectionStatus : describe()
+
 RoutingInstance ..> HashUtils : computeKey()
 
-note bottom of JuniperCollector
-  Reads /tmp/juniper-HOST.xml
-  from JuniperCollector cache
+note right of AbstractJuniperCollector
+  Caches config to
+  /tmp/juniper-HOST.xml
+  (readOrFetch)
 end note
 
 @enduml
