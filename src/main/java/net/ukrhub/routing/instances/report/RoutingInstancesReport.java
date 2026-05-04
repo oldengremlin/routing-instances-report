@@ -116,12 +116,12 @@ public class RoutingInstancesReport {
         Map<String, String> loAddresses = LoAddressMapper.build(juniperHosts);
         log.info("Built lo0 address map: {} entries", loAddresses.size());
 
-        List<String[]> orphans = findL2circuitOrphans(instances, loAddresses);
+        List<String[]> orphans = findOrphans(instances, loAddresses);
         if (!orphans.isEmpty()) {
-            log.warn("L2CIRCUIT orphan check: {} unpaired entries found", orphans.size());
-            orphans.forEach(o -> log.warn("  L2CIRCUIT orphan: vcId={} router={} neighbor={} ({})", o[1], o[2], o[3], o[4]));
+            log.info("L2CIRCUIT/VPLS orphan check: {} unpaired entries found", orphans.size());
+            orphans.forEach(o -> log.info("  orphan: type={} vcId={} router={} neighbor={} ({})", o[0], o[1], o[2], o[3], o[4]));
         } else {
-            log.info("L2CIRCUIT orphan check: all pairs OK");
+            log.info("L2CIRCUIT/VPLS orphan check: all pairs OK");
         }
 
         try {
@@ -160,86 +160,103 @@ public class RoutingInstancesReport {
     }
 
     /**
-     * Finds L2CIRCUIT instances that lack a valid reverse entry.
+     * Finds L2CIRCUIT and VPLS instances that lack a valid reverse peer entry.
      *
-     * <p>For each instance whose name matches {@code DIGITS/ROUTER}, the
-     * neighbor IP is extracted from the host entry (everything after the last
-     * {@code →}), resolved to a router name via {@code loAddresses}, then
-     * the reverse entry {@code vcId/NEIGHBOR_ROUTER} is looked up. Three
-     * mismatch categories are detected:</p>
+     * <p>Processes all instances whose name matches {@code DIGITS/ROUTER[...]}
+     * — that is, L2CIRCUIT entries and VPLS secondary entries (the latter are
+     * only added by {@link JuniperCollector} when LDP neighbors are present).
+     * For each such instance every neighbor IP is extracted from the host entry
+     * (all tokens after the last {@code →}), resolved via {@code loAddresses},
+     * then the reverse entry {@code vcId/NEIGHBOR_ROUTER} is looked up in the
+     * same set. Two mismatch categories are reported:</p>
      * <ul>
-     *   <li><b>сусід невідомий</b> — neighbor IP not present in lo0 map;</li>
-     *   <li><b>немає зворотного запису</b> — neighbor known but no reverse
-     *       L2CIRCUIT entry exists;</li>
-     *   <li><b>невідповідність</b> — reverse exists but its neighbor resolves
-     *       to a different router.</li>
+     *   <li><b>сусід невідомий</b> — neighbor IP absent from the lo0 map;</li>
+     *   <li><b>немає зворотного запису</b> — neighbor router known but no
+     *       L2CIRCUIT or VPLS secondary entry with that router exists for the
+     *       same VC-ID/VPLS-ID.</li>
      * </ul>
      *
      * @param instances    all collected routing instances
      * @param loAddresses  lo0 IP → router name map
      * @return             list of {@code [type, vcId, localRouter, neighborInfo, note]} arrays
      */
-    private static List<String[]> findL2circuitOrphans(
+    private static List<String[]> findOrphans(
             Map<String, RoutingInstance> instances,
             Map<String, String> loAddresses) {
 
         Pattern namePattern = Pattern.compile("^(\\d+)/(.+)$");
-        Map<String, List<String>> neighborMap = new LinkedHashMap<>();
+        Pattern reSuffix = Pattern.compile("-re\\d+$", Pattern.CASE_INSENSITIVE);
+
+        // vcId → set of clean router names that have any entry for this vcId
+        Map<String, Set<String>> vcidRouterSet = new HashMap<>();
+        // instance name → [type, ip1, ip2, …] (neighbor IPs from last " → " segment)
+        Map<String, String[]> entryMap = new LinkedHashMap<>();
 
         instances.forEach((key, ri) -> {
-            if (!"L2CIRCUIT".equals(ri.getType())) return;
+            String t = ri.getType();
+            if (!t.equals("L2CIRCUIT") && !t.startsWith("VPLS")) return;
             Matcher m = namePattern.matcher(ri.getName());
             if (!m.matches()) return;
-            List<String> neighborIps = ri.getHosts().stream()
-                    .map(host -> {
-                        int arrow = host.indexOf(" → ");
-                        return arrow >= 0 ? host.substring(arrow + 3).trim() : null;
-                    })
-                    .filter(ip -> ip != null && !ip.isEmpty())
-                    .collect(Collectors.toList());
-            if (!neighborIps.isEmpty()) {
-                neighborMap.put(ri.getName(), neighborIps);
+
+            String vcId = m.group(1);
+            String localRouter = stripVplsSuffix(m.group(2), reSuffix);
+            vcidRouterSet.computeIfAbsent(vcId, k -> new HashSet<>()).add(localRouter);
+
+            List<String> ips = new ArrayList<>();
+            for (String host : ri.getHosts()) {
+                int arrow = host.lastIndexOf(" → ");
+                if (arrow >= 0) {
+                    for (String ip : host.substring(arrow + 3).split(",\\s*")) {
+                        if (!ip.isBlank()) ips.add(ip.trim());
+                    }
+                }
+            }
+            if (!ips.isEmpty()) {
+                String[] entry = new String[ips.size() + 1];
+                entry[0] = t;
+                for (int i = 0; i < ips.size(); i++) entry[i + 1] = ips.get(i);
+                entryMap.put(ri.getName(), entry);
             }
         });
 
         List<String[]> orphans = new ArrayList<>();
 
-        neighborMap.forEach((name, neighborIps) -> {
+        entryMap.forEach((name, entry) -> {
             Matcher m = namePattern.matcher(name);
             if (!m.matches()) return;
             String vcId = m.group(1);
-            String localRouter = m.group(2);
+            String localRouter = stripVplsSuffix(m.group(2), reSuffix);
+            String type = entry[0];
 
-            for (String neighborIp : neighborIps) {
-                String neighborRouter = loAddresses.get(neighborIp);
+            for (int i = 1; i < entry.length; i++) {
+                String ip = entry[i];
+                String neighborRouter = loAddresses.get(ip);
                 if (neighborRouter == null) {
-                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter, neighborIp, "сусід невідомий"});
-                    continue;
-                }
-
-                String reverseKey = vcId + "/" + neighborRouter;
-                List<String> reverseNeighborIps = neighborMap.get(reverseKey);
-                if (reverseNeighborIps == null) {
-                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter, neighborRouter, "немає зворотного запису"});
-                    continue;
-                }
-
-                boolean reversePointsBack = reverseNeighborIps.stream()
-                        .anyMatch(ip -> localRouter.equals(loAddresses.get(ip)));
-                if (!reversePointsBack) {
-                    String reverseNeighborNames = reverseNeighborIps.stream()
-                            .map(ip -> {
-                                String n = loAddresses.get(ip);
-                                return n != null ? n : ip;
-                            })
-                            .collect(Collectors.joining(", "));
-                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter,
-                            neighborRouter + " → " + reverseNeighborNames, "невідповідність"});
+                    orphans.add(new String[]{type, vcId, localRouter, ip, "сусід невідомий"});
+                } else {
+                    Set<String> existing = vcidRouterSet.get(vcId);
+                    if (existing == null || !existing.contains(neighborRouter)) {
+                        orphans.add(new String[]{type, vcId, localRouter, neighborRouter, "немає зворотного запису"});
+                    }
                 }
             }
         });
 
         return orphans;
+    }
+
+    /**
+     * Strips a trailing VPLS instance name in parentheses and the JunOS
+     * routing-engine suffix ({@code -re0}/{@code -re1}) from a raw router
+     * name token, then upper-cases the result.
+     *
+     * @param raw      raw string from the instance name after the first {@code /}
+     * @param reSuffix compiled pattern for {@code -re\d+}
+     * @return         clean upper-cased router base name
+     */
+    private static String stripVplsSuffix(String raw, Pattern reSuffix) {
+        String s = raw.replaceAll("\\s*\\([^)]*\\)$", "").trim();
+        return reSuffix.matcher(s).replaceAll("").toUpperCase();
     }
 
     /**
