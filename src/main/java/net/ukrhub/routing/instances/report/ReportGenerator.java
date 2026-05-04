@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.*;
 import java.util.stream.*;
-import java.util.function.*;
 
 /**
  * Generates the HTML report from the collected routing instance data.
