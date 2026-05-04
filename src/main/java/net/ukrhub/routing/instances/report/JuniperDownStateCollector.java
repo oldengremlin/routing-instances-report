@@ -106,7 +106,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
 
         List<String[]> results = new ArrayList<>();
         parseL2ckt(responses.get(0), routerName, loAddresses, results);
-        parseVpls(responses.get(1), loAddresses, results);
+        parseVpls(responses.get(1), routerName, loAddresses, results);
 
         log.info("Down state from {}: {} connections down", hostname, results.size());
         return results;
@@ -165,6 +165,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
 
                 results.add(new String[]{
                         "L2CIRCUIT",
+                        routerName,
                         vcId,
                         vcId + "/" + routerName,
                         neighborName + ", " + iface,
@@ -186,7 +187,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * LDP-VPLS the connection-id has the form {@code IP(vpls-id N)} and
      * the IP is resolved via {@code loAddresses}.</p>
      */
-    private void parseVpls(String xml,
+    private void parseVpls(String xml, String routerName,
                             Map<String, String> loAddresses,
                             List<String[]> results) throws Exception {
         Document doc = parseXml(xml);
@@ -223,6 +224,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
 
                 results.add(new String[]{
                         "VPLS",
+                        routerName,
                         vplsId.isEmpty() ? "?" : vplsId,
                         instanceName,
                         neighborSite,
