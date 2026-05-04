@@ -33,6 +33,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -60,7 +62,7 @@ import java.util.regex.Pattern;
 @Log4j2
 abstract class AbstractJuniperCollector implements Collector {
 
-    private static final String DELIM = "]]>]]>";
+    protected static final String DELIM = "]]>]]>";
 
     private static final String NETCONF_HELLO
             = """
@@ -178,6 +180,25 @@ abstract class AbstractJuniperCollector implements Collector {
      * @throws Exception on SSH, channel, or I/O error
      */
     protected String fetchNetconf(String hostname) throws Exception {
+        return fetchRpcs(hostname, List.of(GET_CONFIG_RPC)).get(0);
+    }
+
+    /**
+     * Opens an SSH/NETCONF session to {@code hostname}, exchanges hellos,
+     * sends each RPC in order, reads the corresponding reply for each, then
+     * closes the session.
+     *
+     * <p>Use this when more than one operational RPC must be sent to the same
+     * router in a single SSH connection (e.g. {@code get-l2ckt-connection-information}
+     * and {@code get-vpls-connection-information}).</p>
+     *
+     * @param hostname router hostname
+     * @param rpcs     list of RPC strings, each already terminated with
+     *                 the NETCONF 1.0 {@code ]]>]]>} delimiter
+     * @return         list of raw RPC-reply strings, one per entry in {@code rpcs}
+     * @throws Exception on SSH, channel, or I/O error
+     */
+    protected List<String> fetchRpcs(String hostname, List<String> rpcs) throws Exception {
         leftover.setLength(0);
         log.info("Connecting to {} via NETCONF/SSH", hostname);
         JSch jsch = new JSch();
@@ -215,17 +236,21 @@ abstract class AbstractJuniperCollector implements Collector {
         }
         log.debug("NETCONF channel ({}) established: {}", mode, hostname);
 
-        readUntilDelimiter(in);
-        send(out, NETCONF_HELLO);
-        send(out, GET_CONFIG_RPC);
-        String response = readUntilDelimiter(in);
-        send(out, CLOSE_SESSION_RPC);
-
-        channel.disconnect();
-        session.disconnect();
-        log.debug("NETCONF session closed: {}", hostname);
-
-        return response;
+        try {
+            readUntilDelimiter(in);
+            send(out, NETCONF_HELLO);
+            List<String> responses = new ArrayList<>();
+            for (String rpc : rpcs) {
+                send(out, rpc);
+                responses.add(readUntilDelimiter(in));
+            }
+            send(out, CLOSE_SESSION_RPC);
+            return responses;
+        } finally {
+            channel.disconnect();
+            session.disconnect();
+            log.debug("NETCONF session closed: {}", hostname);
+        }
     }
 
     /**

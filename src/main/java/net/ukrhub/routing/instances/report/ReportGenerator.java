@@ -65,6 +65,7 @@ public class ReportGenerator {
 \t</tbody>
     </table>
     <!--ORPHANTABLE-->
+    <!--DOWNSTATETABLE-->
     <!--VRFVPPOSTBR-->
 </body>
 </html>
@@ -85,19 +86,22 @@ public class ReportGenerator {
      * @param vrfVplsList  RD → {name, href} map for the RD index
      * @param outputPath   destination file path (typically the nginx document root)
      * @param loAddresses  lo0 IP → router name map for address resolution
-     * @param orphans      L2CIRCUIT unpaired entries from
-     *                     {@link RoutingInstancesReport#findL2circuitOrphans}; may be empty
+     * @param orphans         L2CIRCUIT/VPLS unpaired entries from {@code findOrphans}; may be empty
+     * @param downConnections L2CIRCUIT/VPLS down connections from
+     *                        {@link JuniperDownStateCollector}; may be empty
      * @throws IOException if the output file cannot be written
      */
     public static void generate(Map<String, RoutingInstance> instances,
                                 Map<String, Map<String, String>> vrfVplsList,
                                 String outputPath,
                                 Map<String, String> loAddresses,
-                                List<String[]> orphans) throws IOException {
+                                List<String[]> orphans,
+                                List<String[]> downConnections) throws IOException {
         String html = HTML_TEMPLATE
                 .replace("    <!--VRFVPLSLIST-->", buildVrfList(vrfVplsList) + buildVcidList(instances) + "    <!--VRFVPLSLIST-->")
                 .replace("\t    <!--VRFVPLSINFO-->", buildVrfInfo(instances, loAddresses) + "\t    <!--VRFVPLSINFO-->")
                 .replace("    <!--ORPHANTABLE-->", buildOrphanTable(orphans))
+                .replace("    <!--DOWNSTATETABLE-->", buildDownStateTable(downConnections))
                 .replace("    <!--VRFVPPOSTBR-->", buildPostBr(instances.size()) + "    <!--VRFVPPOSTBR-->");
 
         log.info("Writing report to {} ({} entries)", outputPath, instances.size());
@@ -314,6 +318,53 @@ public class ReportGenerator {
             sb.append(String.format(
                     "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
                     o[0], o[1], o[2], o[3], o[4]));
+        }
+        sb.append("\t</tbody>\n");
+        sb.append("    </table>\n");
+        return sb.toString();
+    }
+
+    /**
+     * Builds the down-state L2CIRCUIT/VPLS table (section 5).
+     *
+     * <p>Renders a table of connections reported as down by the router's
+     * operational RPC, collected by {@link JuniperDownStateCollector}.
+     * Rows are sorted by type, then numerically by VC-ID/VPLS-ID, then
+     * by instance name. Returns an empty string when the list is empty.</p>
+     *
+     * <p>Columns: Type | VC-ID/VPLS-ID | Instance | Neighbor/Site | Статус.</p>
+     *
+     * @param downConnections list of {@code [type, vcId, instance, neighborSite, status]} arrays
+     * @return                HTML fragment, or {@code ""} if no down connections
+     */
+    private static String buildDownStateTable(List<String[]> downConnections) {
+        if (downConnections.isEmpty()) {
+            return "";
+        }
+        List<String[]> sorted = new ArrayList<>(downConnections);
+        sorted.sort(Comparator
+                .<String[], String>comparing(r -> r[0])
+                .thenComparingInt(r -> {
+                    try { return Integer.parseInt(r[1]); }
+                    catch (NumberFormatException e) { return 0; }
+                })
+                .thenComparing(r -> r[2]));
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("    <h2>L2CIRCUIT/VPLS неактивний стан</h2>\n");
+        sb.append("    <table border=\"1\" cellpadding=\"2\" cellspacing=\"0\">\n");
+        sb.append("\t<tbody>\n");
+        sb.append("\t    <tr>"
+                + "<th>Тип</th>"
+                + "<th>VC-ID/VPLS-ID</th>"
+                + "<th>Instance</th>"
+                + "<th>Neighbor/Site</th>"
+                + "<th>Статус</th>"
+                + "</tr>\n");
+        for (String[] r : sorted) {
+            sb.append(String.format(
+                    "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                    r[0], r[1], r[2], r[3], r[4]));
         }
         sb.append("\t</tbody>\n");
         sb.append("    </table>\n");
