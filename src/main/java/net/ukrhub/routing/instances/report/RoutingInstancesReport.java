@@ -124,8 +124,22 @@ public class RoutingInstancesReport {
             log.info("L2CIRCUIT/VPLS orphan check: all pairs OK");
         }
 
+        List<String[]> downConnections = new ArrayList<>();
+        JuniperDownStateCollector downCollector = new JuniperDownStateCollector(login, pass);
+        for (String host : juniperHosts) {
+            log.info("Collecting down state from: {}", host);
+            try {
+                downConnections.addAll(downCollector.collectDownState(host, loAddresses));
+            } catch (Exception ex) {
+                log.error("DownState {} failed: {}", host, ex.getMessage(), ex);
+            }
+        }
+        if (!downConnections.isEmpty()) {
+            log.info("Down state check: {} connections down total", downConnections.size());
+        }
+
         try {
-            ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses, orphans);
+            ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses, orphans, downConnections);
         } catch (IOException e) {
             log.error("Failed to write report to {}: {}", reportPath, e.getMessage());
         }
