@@ -18,6 +18,8 @@ import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.*;
+import java.util.stream.*;
 
 /**
  * Application entry point.
@@ -114,8 +116,16 @@ public class RoutingInstancesReport {
         Map<String, String> loAddresses = LoAddressMapper.build(juniperHosts);
         log.info("Built lo0 address map: {} entries", loAddresses.size());
 
+        List<String[]> orphans = findL2circuitOrphans(instances, loAddresses);
+        if (!orphans.isEmpty()) {
+            log.warn("L2CIRCUIT orphan check: {} unpaired entries found", orphans.size());
+            orphans.forEach(o -> log.warn("  L2CIRCUIT orphan: vcId={} router={} neighbor={} ({})", o[1], o[2], o[3], o[4]));
+        } else {
+            log.info("L2CIRCUIT orphan check: all pairs OK");
+        }
+
         try {
-            ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses);
+            ReportGenerator.generate(instances, vrfVplsList, reportPath, loAddresses, orphans);
         } catch (IOException e) {
             log.error("Failed to write report to {}: {}", reportPath, e.getMessage());
         }
@@ -147,6 +157,89 @@ public class RoutingInstancesReport {
     private static String env(String name, String defaultValue) {
         String val = System.getenv(name);
         return (val != null && !val.isBlank()) ? val : defaultValue;
+    }
+
+    /**
+     * Finds L2CIRCUIT instances that lack a valid reverse entry.
+     *
+     * <p>For each instance whose name matches {@code DIGITS/ROUTER}, the
+     * neighbor IP is extracted from the host entry (everything after the last
+     * {@code →}), resolved to a router name via {@code loAddresses}, then
+     * the reverse entry {@code vcId/NEIGHBOR_ROUTER} is looked up. Three
+     * mismatch categories are detected:</p>
+     * <ul>
+     *   <li><b>сусід невідомий</b> — neighbor IP not present in lo0 map;</li>
+     *   <li><b>немає зворотного запису</b> — neighbor known but no reverse
+     *       L2CIRCUIT entry exists;</li>
+     *   <li><b>невідповідність</b> — reverse exists but its neighbor resolves
+     *       to a different router.</li>
+     * </ul>
+     *
+     * @param instances    all collected routing instances
+     * @param loAddresses  lo0 IP → router name map
+     * @return             list of {@code [type, vcId, localRouter, neighborInfo, note]} arrays
+     */
+    private static List<String[]> findL2circuitOrphans(
+            Map<String, RoutingInstance> instances,
+            Map<String, String> loAddresses) {
+
+        Pattern namePattern = Pattern.compile("^(\\d+)/(.+)$");
+        Map<String, List<String>> neighborMap = new LinkedHashMap<>();
+
+        instances.forEach((key, ri) -> {
+            if (!"L2CIRCUIT".equals(ri.getType())) return;
+            Matcher m = namePattern.matcher(ri.getName());
+            if (!m.matches()) return;
+            List<String> neighborIps = ri.getHosts().stream()
+                    .map(host -> {
+                        int arrow = host.indexOf(" → ");
+                        return arrow >= 0 ? host.substring(arrow + 3).trim() : null;
+                    })
+                    .filter(ip -> ip != null && !ip.isEmpty())
+                    .collect(Collectors.toList());
+            if (!neighborIps.isEmpty()) {
+                neighborMap.put(ri.getName(), neighborIps);
+            }
+        });
+
+        List<String[]> orphans = new ArrayList<>();
+
+        neighborMap.forEach((name, neighborIps) -> {
+            Matcher m = namePattern.matcher(name);
+            if (!m.matches()) return;
+            String vcId = m.group(1);
+            String localRouter = m.group(2);
+
+            for (String neighborIp : neighborIps) {
+                String neighborRouter = loAddresses.get(neighborIp);
+                if (neighborRouter == null) {
+                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter, neighborIp, "сусід невідомий"});
+                    continue;
+                }
+
+                String reverseKey = vcId + "/" + neighborRouter;
+                List<String> reverseNeighborIps = neighborMap.get(reverseKey);
+                if (reverseNeighborIps == null) {
+                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter, neighborRouter, "немає зворотного запису"});
+                    continue;
+                }
+
+                boolean reversePointsBack = reverseNeighborIps.stream()
+                        .anyMatch(ip -> localRouter.equals(loAddresses.get(ip)));
+                if (!reversePointsBack) {
+                    String reverseNeighborNames = reverseNeighborIps.stream()
+                            .map(ip -> {
+                                String n = loAddresses.get(ip);
+                                return n != null ? n : ip;
+                            })
+                            .collect(Collectors.joining(", "));
+                    orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter,
+                            neighborRouter + " → " + reverseNeighborNames, "невідповідність"});
+                }
+            }
+        });
+
+        return orphans;
     }
 
     /**
