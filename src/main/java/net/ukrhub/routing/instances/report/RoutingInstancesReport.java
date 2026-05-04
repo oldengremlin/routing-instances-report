@@ -187,9 +187,13 @@ public class RoutingInstancesReport {
         Map<String, List<String>> neighborMap = new LinkedHashMap<>();
 
         instances.forEach((key, ri) -> {
-            if (!"L2CIRCUIT".equals(ri.getType())) return;
+            if (!"L2CIRCUIT".equals(ri.getType())) {
+                return;
+            }
             Matcher m = namePattern.matcher(ri.getName());
-            if (!m.matches()) return;
+            if (!m.matches()) {
+                return;
+            }
             List<String> neighborIps = ri.getHosts().stream()
                     .map(host -> {
                         int arrow = host.indexOf(" → ");
@@ -206,7 +210,9 @@ public class RoutingInstancesReport {
 
         neighborMap.forEach((name, neighborIps) -> {
             Matcher m = namePattern.matcher(name);
-            if (!m.matches()) return;
+            if (!m.matches()) {
+                return;
+            }
             String vcId = m.group(1);
             String localRouter = m.group(2);
 
@@ -234,7 +240,7 @@ public class RoutingInstancesReport {
                             })
                             .collect(Collectors.joining(", "));
                     orphans.add(new String[]{"L2CIRCUIT", vcId, localRouter,
-                            neighborRouter + " → " + reverseNeighborNames, "невідповідність"});
+                        neighborRouter + " → " + reverseNeighborNames, "невідповідність"});
                 }
             }
         });

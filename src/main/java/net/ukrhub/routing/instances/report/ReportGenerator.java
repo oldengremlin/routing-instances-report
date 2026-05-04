@@ -65,8 +65,8 @@ public class ReportGenerator {
 \t    <!--VRFVPLSINFO-->
 \t</tbody>
     </table>
-    <!--VRFVPPOSTBR-->
     <!--ORPHANTABLE-->
+    <!--VRFVPPOSTBR-->
 </body>
 </html>
 """;
@@ -217,8 +217,8 @@ public class ReportGenerator {
 
             Matcher vcm = VCID_PAT.matcher(ri.getName());
             String vcidBack = vcm.find()
-                    ? " <sup><a href=\"#vcid-" + vcm.group(1) + "\">↑</a></sup>"
-                    : "";
+                              ? " <sup><a href=\"#vcid-" + vcm.group(1) + "\">↑</a></sup>"
+                              : "";
 
             sb.append(String.format(
                     sp + "<tr>"
