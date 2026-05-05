@@ -13,27 +13,58 @@ mvn package -DskipTests
 docker build -t routing-instances-report .
 ```
 
+```bash
+# Regenerate docs/classes.svg (PlantUML) and target/reports/apidocs (Javadoc):
+mvn -P docs generate-resources
+```
+
 There are no automated tests; the Dockerfile is the primary integration target.
 
 ## Architecture
 
 The tool is a single-shot Java 21 CLI that collects VRF/VPLS routing instance definitions from network routers and writes one HTML report. It runs inside a Docker container (nginx + JRE 21) that re-invokes it every 24 hours via a shell loop (`bin/routing-instances-report.sh`), started as a background process by nginx's entrypoint (`docker-entrypoint.d/40-routing-instances-report.sh`).
 
-**Data flow:**
+**Three-phase collection** (`RoutingInstancesReport.main`):
 
 ```
 env vars → RoutingInstancesReport.main()
-    → JuniperCollector   (SSH → NETCONF over subsystem or exec channel, parses XML)
-    → CiscoCollector     (Telnet, parses show running-config text)
-    → RouterOSCollector  (SSH exec, parses /ip route vrf export compact)
-    → ReportGenerator    (writes indexed HTML to REPORT_PATH)
+    Phase 1: JuniperCollector (SSH → NETCONF, writes xmlCache + /tmp/juniper-<host>.xml)
+    Phase 2: JuniperSwitchCollector      (reads xmlCache/disk, no network)
+             JuniperL2circuitCollector   (reads xmlCache/disk, no network)
+             JuniperBridgedomainsCollector (reads xmlCache/disk, no network)
+             CiscoCollector             (Telnet, parses show running-config text)
+             RouterOSCollector          (SSH exec, parses /ip route vrf export compact)
+    LoAddressMapper.build()             (extracts lo0 IPs from xmlCache for neighbor resolution)
+    findOrphans()                       (checks L2CIRCUIT/VPLS peers for missing reverse entries)
+    Phase 3: JuniperDownStateCollector  (SSH → NETCONF, get-l2ckt/get-vpls down RPCs)
+    → ReportGenerator                  (writes indexed HTML to REPORT_PATH)
 ```
+
+A `Semaphore(5)` limits simultaneous network connections; disk-only collectors (Switch/L2circuit/Bridgedomains) bypass it. All phases use virtual threads (`Executors.newVirtualThreadPerTaskExecutor`).
+
+**Juniper collector hierarchy:**
+
+- `AbstractJuniperCollector` — SSH/NETCONF transport (`subsystem-netconf` or `exec` channel), XML helpers (`readOrFetch`, `parseXml`, `extractRouterName`), in-memory `xmlCache` passed as constructor arg
+- `JuniperCollector` — fetches config, populates xmlCache, parses `//routing-instances/instance`
+- `JuniperSwitchCollector`, `JuniperL2circuitCollector`, `JuniperBridgedomainsCollector` — read from xmlCache (set by Phase 1); no network access
+- `JuniperDownStateCollector` — separate NETCONF session; calls `fetchRpcs()` with two RPCs in one SSH connection; does not implement `collect()` — use `collectDownState()` instead
+
+**Data model** (`RoutingInstance.java`): Lombok `@Data` — holds type, name, RD, and a list of router host-entry strings. Also contains the static `merge()` method (synchronized) used by all collectors to insert/update an instance in the shared maps.
 
 **Deduplication key** (`HashUtils.computeKey`): instance name padded to 50 chars + MD5 + SHA-1, matching the original Perl implementation so the same VRF present on multiple routers collapses into one row listing all routers.
 
-**Data model** (`RoutingInstance.java`): Lombok `@Data` — holds type, name, RD, and a set of router hostnames. Also contains the static `merge()` method used by all three collectors to insert/update an instance in the shared maps.
+**Host entry format** written by `JuniperCollector`:
+- VRF: `ROUTER[(-)] [→ iface1, iface2[(-)]`
+- VPLS/L2: `ROUTER[:siteId][(-)] [(vpls-id)][(vlan-id)] [→ ifaces] [→ neighbors]`
+- VPLS/L3: like VPLS/L2 but with `→ irb[(-)]` before interfaces
 
-**Collectors** write raw dumps to `/tmp/juniper-<host>.xml` and `/tmp/cisco-<host>.conf` for debugging.
+**`LoAddressMapper`** builds an `IP → router-name` map by XPath-extracting all `lo0` addresses from the cached XML dumps. Used by `ReportGenerator` and `JuniperDownStateCollector` to resolve bare neighbor IPs to router names.
+
+**`ConnectionStatus`** — enum of Juniper L2CIRCUIT/VPLS status codes (e.g. `NP`, `OL`, `VC_DN`). `describe(code)` maps them to human-readable strings; handles `->` / `<-` asymmetric-up cases separately.
+
+**Orphan detection** (`findOrphans`): for every L2CIRCUIT/VPLS instance named `vcId/ROUTER`, extracts neighbor IPs from the host entry and verifies a reverse entry `vcId/NEIGHBOR_ROUTER` exists. Reports two categories: *сусід невідомий* (unknown IP) and *немає зворотного запису* (missing reverse entry).
+
+**Debug dumps**: Juniper XML → `$DUMP_DIR/juniper-<host>.xml`; Cisco config → `/tmp/cisco-<host>.conf`.
 
 ## Environment variables
 
@@ -46,6 +77,7 @@ env vars → RoutingInstancesReport.main()
 | `CISCO_HOSTS`    | no                    | (empty)                                   |
 | `ROUTEROS_HOSTS` | no                    | (empty)                                   |
 | `REPORT_PATH`    | no                    | `/usr/share/nginx/html/index.html`        |
+| `DUMP_DIR`       | no                    | `/tmp`                                    |
 | `LOG_LEVEL`      | no                    | `info` (Log4j2 levels: trace/debug/info/warn/error) |
 | `OPENCHANNEL`    | no                    | `subsystem-netconf` (alt: `exec`)         |
 
