@@ -243,7 +243,8 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
                     Matcher m = VPLS_NEIGHBOR_PAT.matcher(connId);
                     if (m.find()) {
                         String ip = m.group(1);
-                        neighborSite = loAddresses.getOrDefault(ip, ip);
+                        String name = loAddresses.getOrDefault(ip, ip);
+                        neighborSite = name.equals(ip) ? ip : name + "/" + ip;
                     } else {
                         neighborSite = connId;
                     }
