@@ -35,9 +35,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -103,26 +105,35 @@ abstract class AbstractJuniperCollector implements Collector {
     private final String login;
     private final String pass;
 
-    AbstractJuniperCollector(String login, String pass) {
+    /** In-memory XML cache shared across all Juniper collectors in one run. */
+    protected final ConcurrentHashMap<String, String> xmlCache;
+
+    AbstractJuniperCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         this.login = login;
         this.pass = pass;
+        this.xmlCache = xmlCache;
     }
 
     /**
      * Returns the raw XML configuration for {@code hostname}.
      *
-     * <p>If {@code /tmp/juniper-HOST.xml} already exists (written by
-     * {@link JuniperCollector} earlier in the same run) it is read from disk.
-     * Otherwise a live NETCONF session is opened via {@link #fetchNetconf}.</p>
+     * <p>Lookup order: in-memory {@link #xmlCache} → disk dump →
+     * live NETCONF fetch. The cache is populated by {@link JuniperCollector}
+     * so subsequent collectors for the same host bypass both disk and network.</p>
      *
      * @param hostname router hostname
      * @return         full XML string of the running configuration
      * @throws Exception on I/O or SSH error
      */
     protected String readOrFetch(String hostname) throws Exception {
+        String cached = xmlCache.get(hostname);
+        if (cached != null) {
+            log.debug("Using in-memory XML cache for {}", hostname);
+            return cached;
+        }
         Path dumpFile = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
         if (Files.exists(dumpFile)) {
-            log.debug("Using cached dump from {}", dumpFile);
+            log.debug("Using disk dump for {}", dumpFile);
             return Files.readString(dumpFile, StandardCharsets.UTF_8);
         }
         return fetchNetconf(hostname);

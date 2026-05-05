@@ -20,6 +20,7 @@ import javax.xml.xpath.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Collects routing instances from Juniper routers via NETCONF over SSH.
@@ -53,8 +54,8 @@ public class JuniperCollector extends AbstractJuniperCollector {
      * @param login SSH username
      * @param pass  SSH password
      */
-    public JuniperCollector(String login, String pass) {
-        super(login, pass);
+    public JuniperCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
+        super(login, pass, xmlCache);
     }
 
     /**
@@ -71,6 +72,7 @@ public class JuniperCollector extends AbstractJuniperCollector {
     public void collect(String hostname, Map<String, RoutingInstance> instances,
                         Map<String, Map<String, String>> vrfVplsList) throws Exception {
         String xmlResponse = fetchNetconf(hostname);
+        xmlCache.put(hostname, xmlResponse);
 
         Path dumpFile = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
         Path tmp = Files.createTempFile(Path.of(DUMP_DIR), "juniper-" + hostname + "-", ".xml");
@@ -82,7 +84,7 @@ public class JuniperCollector extends AbstractJuniperCollector {
         } finally {
             if (!moved) Files.deleteIfExists(tmp);
         }
-        log.debug("Configuration saved to {}", dumpFile);
+        log.debug("Configuration cached in memory and saved to {}", dumpFile);
 
         var doc = parseXml(xmlResponse);
         XPath xp = XPathFactory.newInstance().newXPath();

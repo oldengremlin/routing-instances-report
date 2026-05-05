@@ -19,6 +19,7 @@ import lombok.extern.log4j.Log4j2;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.*;
 
 /**
@@ -93,11 +94,12 @@ public class RoutingInstancesReport {
         Map<String, RoutingInstance> instances = new TreeMap<>();
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
         Semaphore semaphore = new Semaphore(MAX_CONCURRENT_QUERIES);
+        ConcurrentHashMap<String, String> xmlCache = new ConcurrentHashMap<>();
 
-        Collector juniper          = new JuniperCollector(login, pass);
-        Collector juniperSwitch    = new JuniperSwitchCollector(login, pass);
-        Collector juniperL2circuit = new JuniperL2circuitCollector(login, pass);
-        Collector juniperBridges   = new JuniperBridgedomainsCollector(login, pass);
+        Collector juniper          = new JuniperCollector(login, pass, xmlCache);
+        Collector juniperSwitch    = new JuniperSwitchCollector(login, pass, xmlCache);
+        Collector juniperL2circuit = new JuniperL2circuitCollector(login, pass, xmlCache);
+        Collector juniperBridges   = new JuniperBridgedomainsCollector(login, pass, xmlCache);
         Collector cisco            = new CiscoCollector(login, pass, ciscoEnable);
         Collector routeros         = new RouterOSCollector(login, pass);
 
@@ -129,7 +131,7 @@ public class RoutingInstancesReport {
 
         log.info("Collection complete: {} instances total", instances.size());
 
-        Map<String, String> loAddresses = LoAddressMapper.build(juniperHosts);
+        Map<String, String> loAddresses = LoAddressMapper.build(juniperHosts, xmlCache);
         log.info("Built lo0 address map: {} entries", loAddresses.size());
 
         List<String[]> orphans = findOrphans(instances, loAddresses);
@@ -138,7 +140,7 @@ public class RoutingInstancesReport {
         // Phase 3: operational down-state (needs loAddresses)
         log.info("Phase 3: collecting down state");
         List<String[]> downConnections = Collections.synchronizedList(new ArrayList<>());
-        JuniperDownStateCollector downCollector = new JuniperDownStateCollector(login, pass);
+        JuniperDownStateCollector downCollector = new JuniperDownStateCollector(login, pass, xmlCache);
         runParallel(juniperHosts, host -> {
             semaphore.acquireUninterruptibly();
             try { downConnections.addAll(downCollector.collectDownState(host, loAddresses)); }

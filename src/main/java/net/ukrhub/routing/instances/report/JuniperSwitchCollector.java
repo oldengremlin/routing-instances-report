@@ -18,6 +18,7 @@ import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
 import javax.xml.xpath.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Collects {@code connections/interface-switch} entries from Juniper routers.
@@ -42,8 +43,8 @@ public class JuniperSwitchCollector extends AbstractJuniperCollector {
      * @param login SSH username
      * @param pass  SSH password
      */
-    public JuniperSwitchCollector(String login, String pass) {
-        super(login, pass);
+    public JuniperSwitchCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
+        super(login, pass, xmlCache);
     }
 
     @Override

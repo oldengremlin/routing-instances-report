@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 /**
@@ -68,16 +69,23 @@ class LoAddressMapper {
      * @param hosts list of Juniper hostnames (same list passed to the collectors)
      * @return      mutable map; empty if no dump files are available
      */
-    static Map<String, String> build(List<String> hosts) {
+    static Map<String, String> build(List<String> hosts, ConcurrentHashMap<String, String> xmlCache) {
         Map<String, String> result = new HashMap<>();
         for (String host : hosts) {
-            Path dumpFile = Path.of(AbstractJuniperCollector.DUMP_DIR, "juniper-" + host + ".xml");
-            if (!Files.exists(dumpFile)) {
-                log.debug("No dump for lo0 extraction: {}", dumpFile);
-                continue;
+            String xml = xmlCache.get(host);
+            if (xml == null) {
+                Path dumpFile = Path.of(AbstractJuniperCollector.DUMP_DIR, "juniper-" + host + ".xml");
+                if (!Files.exists(dumpFile)) {
+                    log.debug("No cache or dump for lo0 extraction: {}", host);
+                    continue;
+                }
+                try { xml = Files.readString(dumpFile, StandardCharsets.UTF_8); }
+                catch (Exception e) {
+                    log.warn("lo0 address extraction failed for {}: {}", host, e.getMessage());
+                    continue;
+                }
             }
             try {
-                String xml = Files.readString(dumpFile, StandardCharsets.UTF_8);
                 processXml(xml, host, result);
             } catch (Exception e) {
                 log.warn("lo0 address extraction failed for {}: {}", host, e.getMessage());
