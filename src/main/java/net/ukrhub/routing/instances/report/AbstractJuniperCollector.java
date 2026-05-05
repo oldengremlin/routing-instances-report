@@ -22,6 +22,7 @@ import com.jcraft.jsch.Session;
 import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
@@ -149,6 +150,8 @@ abstract class AbstractJuniperCollector implements Collector {
     protected Document parseXml(String xml) throws Exception {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(false);
+        dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         DocumentBuilder db = dbf.newDocumentBuilder();
         db.setErrorHandler(null);
         return db.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
@@ -224,6 +227,7 @@ abstract class AbstractJuniperCollector implements Collector {
         cfg.put("PreferredAuthentications", "password,keyboard-interactive");
         session.setConfig(cfg);
         session.connect(30_000);
+        session.setTimeout(60_000);
 
         String mode = System.getenv("OPENCHANNEL");
         if (mode == null || mode.isBlank()) {
