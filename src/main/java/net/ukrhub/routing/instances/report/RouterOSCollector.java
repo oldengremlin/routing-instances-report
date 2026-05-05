@@ -65,26 +65,31 @@ public class RouterOSCollector implements Collector {
         cfg.put("PreferredAuthentications", "password,keyboard-interactive");
         session.setConfig(cfg);
         session.connect(30_000);
+        session.setTimeout(60_000);
         log.debug("SSH session established: {}", hostname);
 
-        ChannelExec channel = (ChannelExec) session.openChannel("exec");
-        channel.setCommand("/ip route vrf export compact");
-        InputStream in = channel.getInputStream();
-        channel.connect();
-
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] buf = new byte[4096];
-        int n;
-        while ((n = in.read(buf)) != -1) {
-            baos.write(buf, 0, n);
+        try {
+            ChannelExec channel = (ChannelExec) session.openChannel("exec");
+            channel.setCommand("/ip route vrf export compact");
+            InputStream in = channel.getInputStream();
+            channel.connect();
+            try {
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) != -1) {
+                    baos.write(buf, 0, n);
+                }
+            } finally {
+                channel.disconnect();
+            }
+        } finally {
+            session.disconnect();
         }
-        channel.disconnect();
-        session.disconnect();
 
-        int before = instances.size();
         parseConfig(hostname, baos.toString(StandardCharsets.UTF_8).split("\r?\n"),
                 instances, vrfVplsList);
-        log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
+        log.info("Parsed VRF definitions from {}", hostname);
     }
 
     /**

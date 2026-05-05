@@ -41,7 +41,9 @@ ENV TZ=Europe/Kiev
 #   CISCO_HOSTS         (comma-separated)
 #   ROUTEROS_HOSTS      (comma-separated)
 #   REPORT_PATH         (default: /usr/share/nginx/html/index.html)
+#   DUMP_DIR            (default: /tmp)
 #   LOG_LEVEL           (default: info)
 #   OPENCHANNEL         (default: subsystem-netconf | exec)
+#   MAX_CONCURRENT      (default: 5)
 
 EXPOSE 80

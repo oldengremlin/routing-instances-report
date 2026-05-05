@@ -71,6 +71,15 @@ public class ReportGenerator {
 </html>
 """;
 
+    private static String h(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+
     /** Matches IPv4 and IPv6 addresses inside host entry strings. */
     private static final Pattern IP_PATTERN = Pattern.compile(
             "(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}"
@@ -145,7 +154,7 @@ public class ReportGenerator {
                     String href = e.getValue().get("href");
                     sb.append(String.format(
                             "    <li><a href=\"#%s\">%s</a> - <a name=\"%s\" />%s<br /></li>\n",
-                            href, rdl, name, name));
+                            href, h(rdl), name, h(name)));
                 });
 
         sb.append("    </ol></p>\n");
@@ -215,7 +224,8 @@ public class ReportGenerator {
         instances.values().forEach(ri -> {
             num[0]++;
             List<String> resolvedHosts = sortedHosts(ri).stream()
-                    .map(h -> resolveIps(h, loAddresses))
+                    .map(hostEntry -> resolveIps(hostEntry, loAddresses))
+                    .map(s -> h(s))
                     .collect(Collectors.toList());
             String hostsSep = "<br>";
             log.info("[{}] {} {} {}",
@@ -240,9 +250,9 @@ public class ReportGenerator {
                     + "<td style=\"vertical-align: top;\">%s</td>"
                     + "</tr>\n",
                     num[0],
-                    ri.getType(),
-                    ri.getHrefname(), ri.getName(), vcidBack,
-                    ri.getName(), ri.getRd(),
+                    h(ri.getType()),
+                    ri.getHrefname(), h(ri.getName()), vcidBack,
+                    ri.getName(), h(ri.getRd()),
                     hostsHtml));
         });
         return sb.toString();
@@ -325,7 +335,7 @@ public class ReportGenerator {
         for (String[] o : orphans) {
             sb.append(String.format(
                     "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-                    o[0], o[1], o[2], o[3], o[4]));
+                    h(o[0]), h(o[1]), h(o[2]), h(o[3]), h(o[4])));
         }
         sb.append("\t</tbody>\n");
         sb.append("    </table>\n");
@@ -374,7 +384,7 @@ public class ReportGenerator {
         for (String[] r : sorted) {
             sb.append(String.format(
                     "\t    <tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
-                    r[0], r[1], r[2], r[3], r[4], r[5]));
+                    h(r[0]), h(r[1]), h(r[2]), h(r[3]), h(r[4]), h(r[5])));
         }
         sb.append("\t</tbody>\n");
         sb.append("    </table>\n");

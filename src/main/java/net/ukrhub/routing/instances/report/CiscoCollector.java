@@ -29,7 +29,7 @@ import java.util.regex.*;
  * <p>Connects on port 23, authenticates with username/password, enters
  * privileged mode ({@code enable}), disables pagination ({@code terminal
  * length 0}), and captures {@code show running-config}. The raw output is
- * saved to {@code /tmp/cisco-HOST.conf} for debugging.</p>
+ * saved atomically to {@code $DUMP_DIR/cisco-HOST.conf} for debugging.</p>
  *
  * <p>Parser looks for {@code ip vrf NAME} / {@code rd X:Y} block pairs.
  * Each complete pair is merged as type {@code VRF}.</p>
@@ -65,33 +65,45 @@ public class CiscoCollector implements Collector {
         telnet.connect(hostname, 23);
         telnet.setSoTimeout(TIMEOUT_MS);
 
-        InputStream in = telnet.getInputStream();
-        PrintStream out = new PrintStream(telnet.getOutputStream(), true, StandardCharsets.UTF_8);
+        String runningConfig;
+        try {
+            InputStream in = telnet.getInputStream();
+            PrintStream out = new PrintStream(telnet.getOutputStream(), true, StandardCharsets.UTF_8);
 
-        readUntil(in, "Username:");
-        out.println(login);
-        readUntil(in, "Password:");
-        out.println(pass);
-        readUntil(in, ">");
-        out.println("enable");
-        readUntil(in, "Password:");
-        out.println(enablePass);
-        readUntil(in, "#");
-        log.debug("Telnet session established: {}", hostname);
-        out.println("terminal length 0");
-        readUntil(in, "#");
-        out.println("show running-config");
-        String runningConfig = readUntil(in, "#");
-        out.println("exit");
-        telnet.disconnect();
+            readUntil(in, "Username:");
+            out.println(login);
+            readUntil(in, "Password:");
+            out.println(pass);
+            readUntil(in, ">");
+            out.println("enable");
+            readUntil(in, "Password:");
+            out.println(enablePass);
+            readUntil(in, "#");
+            log.debug("Telnet session established: {}", hostname);
+            out.println("terminal length 0");
+            readUntil(in, "#");
+            out.println("show running-config");
+            runningConfig = readUntil(in, "#");
+            out.println("exit");
+        } finally {
+            telnet.disconnect();
+        }
 
-        Path dumpFile = Path.of("/tmp/cisco-" + hostname + ".conf");
-        Files.writeString(dumpFile, runningConfig, StandardCharsets.UTF_8);
+        Path dumpDir = Path.of(AbstractJuniperCollector.DUMP_DIR);
+        Path dumpFile = dumpDir.resolve("cisco-" + hostname + ".conf");
+        Path tmp = Files.createTempFile(dumpDir, "cisco-" + hostname + "-", ".conf");
+        boolean moved = false;
+        try {
+            Files.writeString(tmp, runningConfig, StandardCharsets.UTF_8);
+            Files.move(tmp, dumpFile, StandardCopyOption.ATOMIC_MOVE);
+            moved = true;
+        } finally {
+            if (!moved) Files.deleteIfExists(tmp);
+        }
         log.debug("Configuration saved to {}", dumpFile);
 
-        int before = instances.size();
         parseConfig(hostname, runningConfig.split("\r?\n"), instances, vrfVplsList);
-        log.info("Parsed {} VRF definitions from {}", instances.size() - before, hostname);
+        log.info("Parsed VRF definitions from {}", hostname);
     }
 
     /**

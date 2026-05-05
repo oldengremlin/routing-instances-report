@@ -43,7 +43,7 @@ import java.util.regex.*;
  *       host in parallel (requires the lo0 map from the previous step).</li>
  * </ol>
  *
- * <p>The semaphore ({@code MAX_CONCURRENT_QUERIES}) limits simultaneous
+ * <p>The semaphore ({@code MAX_CONCURRENT}) limits simultaneous
  * network connections; disk-only collectors (Switch/L2circuit/Bridgedomains)
  * bypass it. {@link RoutingInstance#merge} is {@code synchronized} to guard
  * the shared result maps.</p>
@@ -76,8 +76,6 @@ public class RoutingInstancesReport {
      * @param args command-line arguments (ignored; all config via env vars)
      * @throws Exception on unrecoverable startup error (missing required env var)
      */
-    private static final int MAX_CONCURRENT_QUERIES = 5;
-
     public static void main(String[] args) throws Exception {
         String login = require("ROUTER_USER");
         String pass = require("ROUTER_PASS");
@@ -87,13 +85,14 @@ public class RoutingInstancesReport {
         List<String> juniperHosts = parseList(env("JUNIPER_HOSTS", ""));
         List<String> ciscoHosts = parseList(env("CISCO_HOSTS", ""));
         List<String> routerosHosts = parseList(env("ROUTEROS_HOSTS", ""));
+        int maxConcurrent = Integer.parseInt(env("MAX_CONCURRENT", "5"));
 
         log.info("Starting collection — Juniper: {}, Cisco: {}, RouterOS: {} (max {} concurrent)",
-                juniperHosts, ciscoHosts, routerosHosts, MAX_CONCURRENT_QUERIES);
+                juniperHosts, ciscoHosts, routerosHosts, maxConcurrent);
 
         Map<String, RoutingInstance> instances = new TreeMap<>();
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
-        Semaphore semaphore = new Semaphore(MAX_CONCURRENT_QUERIES);
+        Semaphore semaphore = new Semaphore(maxConcurrent);
         ConcurrentHashMap<String, String> xmlCache = new ConcurrentHashMap<>();
 
         Collector juniper          = new JuniperCollector(login, pass, xmlCache);
