@@ -46,6 +46,7 @@ public class JuniperL2circuitCollector extends AbstractJuniperCollector {
      *
      * @param login SSH username
      * @param pass  SSH password
+     * @param xmlCache
      */
     public JuniperL2circuitCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);

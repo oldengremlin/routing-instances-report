@@ -53,6 +53,7 @@ public class JuniperCollector extends AbstractJuniperCollector {
      *
      * @param login SSH username
      * @param pass  SSH password
+     * @param xmlCache
      */
     public JuniperCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);

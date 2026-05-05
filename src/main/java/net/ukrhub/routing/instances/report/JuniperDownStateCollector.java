@@ -14,6 +14,7 @@
  */
 package net.ukrhub.routing.instances.report;
 
+import java.io.IOException;
 import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
 import javax.xml.xpath.*;
@@ -70,6 +71,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      *
      * @param login SSH username
      * @param pass  SSH password
+     * @param xmlCache
      */
     public JuniperDownStateCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);
@@ -123,7 +125,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
             Path dump = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
             if (Files.exists(dump)) {
                 try { xml = Files.readString(dump, StandardCharsets.UTF_8); }
-                catch (Exception e) {
+                catch (IOException e) {
                     log.warn("Could not read dump for {}: {}", hostname, e.getMessage());
                 }
             }

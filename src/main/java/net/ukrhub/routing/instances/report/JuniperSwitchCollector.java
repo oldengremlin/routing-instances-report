@@ -42,6 +42,7 @@ public class JuniperSwitchCollector extends AbstractJuniperCollector {
      *
      * @param login SSH username
      * @param pass  SSH password
+     * @param xmlCache
      */
     public JuniperSwitchCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);

@@ -23,6 +23,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,7 +81,7 @@ class LoAddressMapper {
                     continue;
                 }
                 try { xml = Files.readString(dumpFile, StandardCharsets.UTF_8); }
-                catch (Exception e) {
+                catch (IOException e) {
                     log.warn("lo0 address extraction failed for {}: {}", host, e.getMessage());
                     continue;
                 }

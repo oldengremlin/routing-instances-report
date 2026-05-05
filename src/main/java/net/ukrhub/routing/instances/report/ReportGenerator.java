@@ -364,7 +364,7 @@ public class ReportGenerator {
                 .<String[], String>comparing(r -> r[0])
                 .thenComparing(r -> r[1])
                 .thenComparingInt(r -> {
-                    try { return Integer.parseInt(r[2]); }
+                    try { return Integer.valueOf(r[2]); }
                     catch (NumberFormatException e) { return 0; }
                 })
                 .thenComparing(r -> r[3]));
