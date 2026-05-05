@@ -158,6 +158,8 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
             Node neighbor = neighbors.item(i);
             String neighborIp = xp.evaluate("neighbor-address/text()", neighbor).trim();
             String neighborName = loAddresses.getOrDefault(neighborIp, neighborIp);
+            String neighborDisplay = neighborName.equals(neighborIp)
+                    ? neighborIp : neighborName + "/" + neighborIp;
 
             NodeList connections = (NodeList) xp.evaluate("connection", neighbor, XPathConstants.NODESET);
             if (connections.getLength() > 0) {
@@ -175,7 +177,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
                             routerName,
                             vcId,
                             vcId + "/" + routerName,
-                            neighborName + ", " + iface,
+                            neighborDisplay + ", " + iface,
                             ConnectionStatus.describe(statusCode)
                     });
                 }
@@ -186,7 +188,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
                         routerName,
                         "?",
                         "?/" + routerName,
-                        neighborName,
+                        neighborDisplay,
                         errorText.isEmpty() ? "no connections" : errorText
                 });
             }
@@ -241,7 +243,8 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
                     Matcher m = VPLS_NEIGHBOR_PAT.matcher(connId);
                     if (m.find()) {
                         String ip = m.group(1);
-                        neighborSite = loAddresses.getOrDefault(ip, ip);
+                        String name = loAddresses.getOrDefault(ip, ip);
+                        neighborSite = name.equals(ip) ? ip : name + "/" + ip;
                     } else {
                         neighborSite = connId;
                     }
