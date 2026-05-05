@@ -180,12 +180,17 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * to {@code results}.
      *
      * <p>The VPLS-ID is read from {@code ldp-vpls-reference-site/vpls-id}
-     * first; if absent, from {@code reference-site/vpls-id}. Only instances
-     * that have at least one {@code connection} element are processed.</p>
-     *
-     * <p>For BGP-VPLS the connection-id is a numeric site number; for
-     * LDP-VPLS the connection-id has the form {@code IP(vpls-id N)} and
-     * the IP is resolved via {@code loAddresses}.</p>
+     * first; if absent, from {@code reference-site/vpls-id}. Two cases are
+     * handled:</p>
+     * <ul>
+     *   <li>Instance has {@code reference-site/connection} elements — one row
+     *       per connection; for BGP-VPLS the connection-id is a numeric site
+     *       number, for LDP-VPLS it has the form {@code IP(vpls-id N)} and the
+     *       IP is resolved via {@code loAddresses}.</li>
+     *   <li>Instance has {@code instance-display-error} but no connections —
+     *       a single row with {@code "-"} as the neighbor and the error text
+     *       (typically {@code "No connections found."}) as the status.</li>
+     * </ul>
      */
     private void parseVpls(String xml, String routerName,
                             Map<String, String> loAddresses,
@@ -194,7 +199,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
         XPath xp = XPathFactory.newInstance().newXPath();
 
         NodeList instances = (NodeList) xp.evaluate(
-                "//instance[reference-site/connection]", doc, XPathConstants.NODESET);
+                "//instance[reference-site/connection or instance-display-error]", doc, XPathConstants.NODESET);
 
         for (int i = 0; i < instances.getLength(); i++) {
             Node inst = instances.item(i);
@@ -208,27 +213,39 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
             NodeList connections = (NodeList) xp.evaluate(
                     "reference-site/connection", inst, XPathConstants.NODESET);
 
-            for (int j = 0; j < connections.getLength(); j++) {
-                Node conn = connections.item(j);
-                String connId = xp.evaluate("connection-id/text()", conn).trim();
-                String statusCode = xp.evaluate("connection-status/text()", conn).trim();
+            if (connections.getLength() > 0) {
+                for (int j = 0; j < connections.getLength(); j++) {
+                    Node conn = connections.item(j);
+                    String connId = xp.evaluate("connection-id/text()", conn).trim();
+                    String statusCode = xp.evaluate("connection-status/text()", conn).trim();
 
-                String neighborSite;
-                Matcher m = VPLS_NEIGHBOR_PAT.matcher(connId);
-                if (m.find()) {
-                    String ip = m.group(1);
-                    neighborSite = loAddresses.getOrDefault(ip, ip);
-                } else {
-                    neighborSite = connId;
+                    String neighborSite;
+                    Matcher m = VPLS_NEIGHBOR_PAT.matcher(connId);
+                    if (m.find()) {
+                        String ip = m.group(1);
+                        neighborSite = loAddresses.getOrDefault(ip, ip);
+                    } else {
+                        neighborSite = connId;
+                    }
+
+                    results.add(new String[]{
+                            "VPLS",
+                            routerName,
+                            vplsId.isEmpty() ? "?" : vplsId,
+                            instanceName,
+                            neighborSite,
+                            ConnectionStatus.describe(statusCode)
+                    });
                 }
-
+            } else {
+                String errorText = xp.evaluate("instance-display-error/text()", inst).trim();
                 results.add(new String[]{
                         "VPLS",
                         routerName,
                         vplsId.isEmpty() ? "?" : vplsId,
                         instanceName,
-                        neighborSite,
-                        ConnectionStatus.describe(statusCode)
+                        "-",
+                        errorText.isEmpty() ? "no connections" : errorText
                 });
             }
         }
