@@ -38,10 +38,12 @@ import java.util.regex.Pattern;
 /**
  * Builds an IP-address → router-name lookup map from Juniper XML dump files.
  *
- * <p>After {@link JuniperCollector} has written {@code /tmp/juniper-HOST.xml}
- * for every host, this class reads those files and extracts all addresses
- * configured on the {@code lo0} loopback interface (both IPv4 and IPv6,
- * across all address families). The resulting map is used by
+ * <p>After {@link JuniperCollector} has populated the shared in-memory XML
+ * cache (and written {@code $DUMP_DIR/juniper-HOST.xml} as a side effect),
+ * this class reads each host's configuration — preferring the in-memory
+ * cache, falling back to the disk dump when absent — and extracts all
+ * addresses configured on the {@code lo0} loopback interface (both IPv4
+ * and IPv6, across all address families). The resulting map is used by
  * {@link ReportGenerator} to replace bare neighbor IP addresses in host
  * entries with {@code ROUTERNAME/IP}, making circuit endpoints immediately
  * recognisable without consulting a separate address plan.</p>
@@ -60,15 +62,17 @@ class LoAddressMapper {
     }
 
     /**
-     * Reads {@code /tmp/juniper-HOST.xml} for each host in {@code hosts} and
-     * returns a map of loopback IP address → upper-cased router base name.
+     * Reads each host's XML configuration (from {@code xmlCache} first, then
+     * from {@code $DUMP_DIR/juniper-HOST.xml} as a fallback) and returns a map
+     * of loopback IP address → upper-cased router base name.
      *
-     * <p>Hosts whose dump file does not exist yet (e.g. collection failed) are
-     * silently skipped. Parse errors are logged at WARN level and do not abort
-     * processing of the remaining hosts.</p>
+     * <p>Hosts with neither a cached XML nor an on-disk dump (e.g. collection
+     * failed) are silently skipped. Parse errors are logged at WARN level and
+     * do not abort processing of the remaining hosts.</p>
      *
-     * @param hosts list of Juniper hostnames (same list passed to the collectors)
-     * @return      mutable map; empty if no dump files are available
+     * @param hosts    list of Juniper hostnames (same list passed to the collectors)
+     * @param xmlCache shared in-memory XML cache populated by {@link JuniperCollector}
+     * @return         mutable map; empty if no XML data is available
      */
     static Map<String, String> build(List<String> hosts, ConcurrentHashMap<String, String> xmlCache) {
         Map<String, String> result = new HashMap<>();

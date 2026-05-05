@@ -60,6 +60,7 @@ import java.util.regex.*;
  *   <tr><td>{@code ROUTEROS_HOSTS}</td><td>no</td><td>(empty)</td></tr>
  *   <tr><td>{@code REPORT_PATH}</td><td>no</td><td>{@code /usr/share/nginx/html/index.html}</td></tr>
  *   <tr><td>{@code DUMP_DIR}</td><td>no</td><td>{@code /tmp}</td></tr>
+ *   <tr><td>{@code MAX_CONCURRENT}</td><td>no</td><td>{@code 5}</td></tr>
  *   <tr><td>{@code LOG_LEVEL}</td><td>no</td><td>{@code info}</td></tr>
  *   <tr><td>{@code OPENCHANNEL}</td><td>no</td><td>{@code subsystem-netconf}</td></tr>
  * </table>

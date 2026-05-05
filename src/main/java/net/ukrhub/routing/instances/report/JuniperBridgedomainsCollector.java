@@ -48,8 +48,9 @@ public class JuniperBridgedomainsCollector extends AbstractJuniperCollector {
     /**
      * Creates a new collector with the given SSH credentials.
      *
-     * @param login SSH username
-     * @param pass  SSH password
+     * @param login    SSH username
+     * @param pass     SSH password
+     * @param xmlCache shared in-memory XML cache populated by {@link JuniperCollector}
      */
     public JuniperBridgedomainsCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);

@@ -78,6 +78,7 @@ A `Semaphore(5)` limits simultaneous network connections; disk-only collectors (
 | `ROUTEROS_HOSTS` | no                    | (empty)                                   |
 | `REPORT_PATH`    | no                    | `/usr/share/nginx/html/index.html`        |
 | `DUMP_DIR`       | no                    | `/tmp`                                    |
+| `MAX_CONCURRENT` | no                    | `5` (cap on simultaneous network sessions) |
 | `LOG_LEVEL`      | no                    | `info` (Log4j2 levels: trace/debug/info/warn/error) |
 | `OPENCHANNEL`    | no                    | `subsystem-netconf` (alt: `exec`)         |
 

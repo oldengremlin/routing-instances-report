@@ -25,10 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Collects routing instances from Juniper routers via NETCONF over SSH.
  *
- * <p>Fetches the full running configuration, saves it to
- * {@code /tmp/juniper-HOST.xml} for reuse by the other Juniper collectors in
- * the same run, then parses {@code //routing-instances/instance} nodes
- * (excluding those inside {@code <dynamic-profiles>}).</p>
+ * <p>Fetches the full running configuration, populates the shared in-memory
+ * {@code xmlCache} and atomically writes {@code $DUMP_DIR/juniper-HOST.xml}
+ * for reuse by the other Juniper collectors in the same run, then parses
+ * {@code //routing-instances/instance} nodes (excluding those inside
+ * {@code <dynamic-profiles>}).</p>
  *
  * <p>Type mapping:</p>
  * <ul>
@@ -51,9 +52,10 @@ public class JuniperCollector extends AbstractJuniperCollector {
     /**
      * Creates a new collector with the given SSH credentials.
      *
-     * @param login SSH username
-     * @param pass  SSH password
-     * @param xmlCache
+     * @param login    SSH username
+     * @param pass     SSH password
+     * @param xmlCache shared in-memory XML cache populated by this collector
+     *                 and consumed by the other Juniper collectors
      */
     public JuniperCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);

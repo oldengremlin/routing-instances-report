@@ -46,10 +46,12 @@ import java.util.regex.Pattern;
  * Base class for all Juniper collectors.
  *
  * <p>Provides the NETCONF 1.0 transport over SSH (both {@code subsystem-netconf}
- * and {@code exec} channel modes) and three XML helpers shared by the four
- * concrete subclasses:</p>
+ * and {@code exec} channel modes) and three XML helpers shared by the five
+ * concrete subclasses ({@link JuniperCollector}, {@link JuniperSwitchCollector},
+ * {@link JuniperL2circuitCollector}, {@link JuniperBridgedomainsCollector},
+ * {@link JuniperDownStateCollector}):</p>
  * <ul>
- *   <li>{@link #readOrFetch} — returns a cached {@code /tmp/juniper-HOST.xml}
+ *   <li>{@link #readOrFetch} — returns a cached {@code $DUMP_DIR/juniper-HOST.xml}
  *       dump when available, falling back to a live NETCONF fetch;</li>
  *   <li>{@link #parseXml} — parses an XML string into a DOM {@link Document};</li>
  *   <li>{@link #extractRouterName} — resolves the router's base hostname from

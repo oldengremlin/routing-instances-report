@@ -33,10 +33,12 @@ import java.util.regex.*;
  *   <li>{@code get-vpls-connection-information} with {@code <down/>} filter.</li>
  * </ul>
  *
- * <p>Each down connection is returned as a five-element string array
- * {@code [type, vcId, instance, neighborSite, statusDescription]}:</p>
+ * <p>Each down connection is returned as a six-element string array
+ * {@code [type, routerName, vcId, instance, neighborSite, statusDescription]}:</p>
  * <ul>
  *   <li><b>type</b> — {@code L2CIRCUIT} or {@code VPLS};</li>
+ *   <li><b>routerName</b> — local router base name (canonical, from
+ *       {@code //system/host-name}, falling back to upper-cased hostname);</li>
  *   <li><b>vcId</b> — VC-ID (L2CIRCUIT) or VPLS-ID;</li>
  *   <li><b>instance</b> — {@code vcId/ROUTER} for L2CIRCUIT, instance name for VPLS;</li>
  *   <li><b>neighborSite</b> — resolved neighbor name + interface for L2CIRCUIT,
@@ -69,9 +71,10 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
     /**
      * Creates a new collector with the given SSH credentials.
      *
-     * @param login SSH username
-     * @param pass  SSH password
-     * @param xmlCache
+     * @param login    SSH username
+     * @param pass     SSH password
+     * @param xmlCache shared in-memory XML cache populated by {@link JuniperCollector};
+     *                 used to resolve the local router's canonical name
      */
     public JuniperDownStateCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
         super(login, pass, xmlCache);
@@ -99,7 +102,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      *
      * @param hostname    Juniper router hostname
      * @param loAddresses lo0 IP → router name map for neighbor resolution
-     * @return            list of {@code [type, vcId, instance, neighborSite, status]} rows
+     * @return            list of {@code [type, routerName, vcId, instance, neighborSite, status]} rows
      * @throws Exception  on SSH or XML parse error
      */
     public List<String[]> collectDownState(String hostname,
