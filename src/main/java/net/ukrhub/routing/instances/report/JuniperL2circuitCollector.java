@@ -18,6 +18,7 @@ import lombok.extern.log4j.Log4j2;
 import org.w3c.dom.*;
 import javax.xml.xpath.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Collects {@code protocols/l2circuit/neighbor/interface} entries from Juniper
@@ -46,8 +47,8 @@ public class JuniperL2circuitCollector extends AbstractJuniperCollector {
      * @param login SSH username
      * @param pass  SSH password
      */
-    public JuniperL2circuitCollector(String login, String pass) {
-        super(login, pass);
+    public JuniperL2circuitCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
+        super(login, pass, xmlCache);
     }
 
     @Override

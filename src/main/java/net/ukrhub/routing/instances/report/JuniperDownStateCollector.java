@@ -19,6 +19,7 @@ import org.w3c.dom.*;
 import javax.xml.xpath.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.*;
 import java.util.regex.*;
 
@@ -70,8 +71,8 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * @param login SSH username
      * @param pass  SSH password
      */
-    public JuniperDownStateCollector(String login, String pass) {
-        super(login, pass);
+    public JuniperDownStateCollector(String login, String pass, ConcurrentHashMap<String, String> xmlCache) {
+        super(login, pass, xmlCache);
     }
 
     /**
@@ -117,15 +118,21 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * Falls back to the uppercased hostname when the dump is absent.
      */
     private String resolveRouterName(String hostname) {
-        Path dump = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
-        if (Files.exists(dump)) {
+        String xml = xmlCache.get(hostname);
+        if (xml == null) {
+            Path dump = Path.of(DUMP_DIR, "juniper-" + hostname + ".xml");
+            if (Files.exists(dump)) {
+                try { xml = Files.readString(dump, StandardCharsets.UTF_8); }
+                catch (Exception e) {
+                    log.warn("Could not read dump for {}: {}", hostname, e.getMessage());
+                }
+            }
+        }
+        if (xml != null) {
             try {
-                String xml = Files.readString(dump, StandardCharsets.UTF_8);
-                var doc = parseXml(xml);
-                XPath xp = XPathFactory.newInstance().newXPath();
-                return extractRouterName(doc, xp, hostname);
+                return extractRouterName(parseXml(xml), XPathFactory.newInstance().newXPath(), hostname);
             } catch (Exception e) {
-                log.warn("Could not extract router name from dump for {}: {}", hostname, e.getMessage());
+                log.warn("Could not extract router name for {}: {}", hostname, e.getMessage());
             }
         }
         return hostname.toUpperCase();
