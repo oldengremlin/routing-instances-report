@@ -135,9 +135,15 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
      * Parses {@code get-l2ckt-connection-information} reply and appends rows
      * to {@code results}.
      *
-     * <p>Only {@code l2circuit-neighbor} elements that contain at least one
-     * {@code connection} child are processed (neighbors with no down circuits
-     * or only {@code neighbor-display-error} are skipped).</p>
+     * <p>{@code l2circuit-neighbor} elements are selected when they contain at
+     * least one {@code connection} child or a {@code neighbor-display-error}
+     * element. Two cases are handled:</p>
+     * <ul>
+     *   <li>Neighbor has {@code connection} elements — one row per connection.</li>
+     *   <li>Neighbor has {@code neighbor-display-error} but no connections —
+     *       a single row with {@code "?"} as the VC-ID and the error text
+     *       (typically {@code "No l2circuit connections found"}) as the status.</li>
+     * </ul>
      */
     private void parseL2ckt(String xml, String routerName,
                              Map<String, String> loAddresses,
@@ -146,7 +152,7 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
         XPath xp = XPathFactory.newInstance().newXPath();
 
         NodeList neighbors = (NodeList) xp.evaluate(
-                "//l2circuit-neighbor[connection]", doc, XPathConstants.NODESET);
+                "//l2circuit-neighbor[connection or neighbor-display-error]", doc, XPathConstants.NODESET);
 
         for (int i = 0; i < neighbors.getLength(); i++) {
             Node neighbor = neighbors.item(i);
@@ -154,22 +160,34 @@ public class JuniperDownStateCollector extends AbstractJuniperCollector {
             String neighborName = loAddresses.getOrDefault(neighborIp, neighborIp);
 
             NodeList connections = (NodeList) xp.evaluate("connection", neighbor, XPathConstants.NODESET);
-            for (int j = 0; j < connections.getLength(); j++) {
-                Node conn = connections.item(j);
-                String connId = xp.evaluate("connection-id/text()", conn).trim();
-                String statusCode = xp.evaluate("connection-status/text()", conn).trim();
+            if (connections.getLength() > 0) {
+                for (int j = 0; j < connections.getLength(); j++) {
+                    Node conn = connections.item(j);
+                    String connId = xp.evaluate("connection-id/text()", conn).trim();
+                    String statusCode = xp.evaluate("connection-status/text()", conn).trim();
 
-                Matcher m = VC_ID_PAT.matcher(connId);
-                String vcId = m.find() ? m.group(1) : connId;
-                String iface = connId.replaceAll("\\s*\\(vc \\d+\\)$", "").trim();
+                    Matcher m = VC_ID_PAT.matcher(connId);
+                    String vcId = m.find() ? m.group(1) : connId;
+                    String iface = connId.replaceAll("\\s*\\(vc \\d+\\)$", "").trim();
 
+                    results.add(new String[]{
+                            "L2CIRCUIT",
+                            routerName,
+                            vcId,
+                            vcId + "/" + routerName,
+                            neighborName + ", " + iface,
+                            ConnectionStatus.describe(statusCode)
+                    });
+                }
+            } else {
+                String errorText = xp.evaluate("neighbor-display-error/text()", neighbor).trim();
                 results.add(new String[]{
                         "L2CIRCUIT",
                         routerName,
-                        vcId,
-                        vcId + "/" + routerName,
-                        neighborName + ", " + iface,
-                        ConnectionStatus.describe(statusCode)
+                        "?",
+                        "?/" + routerName,
+                        neighborName,
+                        errorText.isEmpty() ? "no connections" : errorText
                 });
             }
         }
