@@ -81,7 +81,7 @@ public class RoutingInstance {
      * @param rd           route distinguisher string, or {@code ""} if absent
      * @param hostEntry    formatted router description string to append to {@link #hosts}
      */
-    static void merge(Map<String, RoutingInstance> instances,
+    static synchronized void merge(Map<String, RoutingInstance> instances,
                       Map<String, Map<String, String>> vrfVplsList,
                       String name, String type, String rd, String hostEntry) {
         String padded = String.format("%-50s", name);

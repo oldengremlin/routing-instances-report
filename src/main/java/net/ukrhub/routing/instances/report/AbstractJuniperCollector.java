@@ -103,12 +103,6 @@ abstract class AbstractJuniperCollector implements Collector {
     private final String login;
     private final String pass;
 
-    /**
-     * Carries bytes that were read past the NETCONF delimiter during
-     * {@link #readUntilDelimiter} so they are not lost between calls.
-     */
-    private final StringBuilder leftover = new StringBuilder();
-
     AbstractJuniperCollector(String login, String pass) {
         this.login = login;
         this.pass = pass;
@@ -209,7 +203,7 @@ abstract class AbstractJuniperCollector implements Collector {
      * @throws Exception on SSH, channel, or I/O error
      */
     protected List<String> fetchRpcs(String hostname, List<String> rpcs) throws Exception {
-        leftover.setLength(0);
+        StringBuilder leftover = new StringBuilder();
         log.info("Connecting to {} via NETCONF/SSH", hostname);
         JSch jsch = new JSch();
         Session session = jsch.getSession(login, hostname, 22);
@@ -247,12 +241,12 @@ abstract class AbstractJuniperCollector implements Collector {
         log.debug("NETCONF channel ({}) established: {}", mode, hostname);
 
         try {
-            readUntilDelimiter(in);
+            readUntilDelimiter(in, leftover);
             send(out, NETCONF_HELLO);
             List<String> responses = new ArrayList<>();
             for (String rpc : rpcs) {
                 send(out, rpc);
-                responses.add(readUntilDelimiter(in));
+                responses.add(readUntilDelimiter(in, leftover));
             }
             send(out, CLOSE_SESSION_RPC);
             return responses;
@@ -278,15 +272,18 @@ abstract class AbstractJuniperCollector implements Collector {
      * Reads from {@code in} until the NETCONF 1.0 {@code ]]>]]>} delimiter is
      * encountered and returns everything before it.
      *
-     * <p>Any bytes read after the delimiter are stored in {@link #leftover} and
+     * <p>Any bytes read after the delimiter are stored in {@code leftover} and
      * prepended to the next call's buffer, ensuring no data is lost between
-     * consecutive RPC exchanges on the same channel.</p>
+     * consecutive RPC exchanges on the same channel. {@code leftover} is
+     * allocated per-{@link #fetchRpcs} call so concurrent sessions on the
+     * same collector instance do not interfere.</p>
      *
-     * @param in SSH channel input stream
-     * @return   text preceding the delimiter
+     * @param in       SSH channel input stream
+     * @param leftover carry-over buffer shared across calls within one session
+     * @return         text preceding the delimiter
      * @throws IOException on read error or unexpected EOF
      */
-    private String readUntilDelimiter(InputStream in) throws IOException {
+    private String readUntilDelimiter(InputStream in, StringBuilder leftover) throws IOException {
         StringBuilder sb = new StringBuilder(65536);
         sb.append(leftover);
         leftover.setLength(0);

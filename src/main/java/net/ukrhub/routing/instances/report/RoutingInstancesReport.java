@@ -18,29 +18,34 @@ import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.regex.*;
 
 /**
  * Application entry point.
  *
- * <p>Reads configuration from environment variables, runs all collectors
- * sequentially, builds the lo0 address map, and writes the HTML report.</p>
+ * <p>Reads configuration from environment variables, runs all collectors in
+ * parallel (virtual threads, semaphore-bounded), builds the lo0 address map,
+ * and writes the HTML report.</p>
  *
- * <h2>Collection order</h2>
+ * <h2>Collection phases</h2>
  * <ol>
- *   <li>{@link JuniperCollector} — fetches XML via NETCONF and writes
- *       {@code $DUMP_DIR/juniper-HOST.xml}; must run before the other three
- *       Juniper collectors so they can reuse the dump.</li>
- *   <li>{@link JuniperSwitchCollector} — reads the cached dump.</li>
- *   <li>{@link JuniperL2circuitCollector} — reads the cached dump.</li>
- *   <li>{@link JuniperBridgedomainsCollector} — reads the cached dump.</li>
- *   <li>{@link CiscoCollector} — Telnet to each Cisco host.</li>
- *   <li>{@link RouterOSCollector} — SSH to each MikroTik host.</li>
+ *   <li><b>Phase 1</b> — {@link JuniperCollector} for every Juniper host in
+ *       parallel; each call fetches XML via NETCONF and writes
+ *       {@code $DUMP_DIR/juniper-HOST.xml}.</li>
+ *   <li><b>Phase 2</b> — all remaining collectors in parallel:
+ *       {@link JuniperSwitchCollector}, {@link JuniperL2circuitCollector},
+ *       {@link JuniperBridgedomainsCollector} (read the cached dumps),
+ *       {@link CiscoCollector}, {@link RouterOSCollector}.</li>
+ *   <li>{@link LoAddressMapper#build} builds the IP→name map.</li>
+ *   <li><b>Phase 3</b> — {@link JuniperDownStateCollector} for every Juniper
+ *       host in parallel (requires the lo0 map from the previous step).</li>
  * </ol>
  *
- * <p>After all collectors finish, {@link LoAddressMapper#build} scans the
- * written dump files to build the IP→name map, which is then passed to
- * {@link ReportGenerator#generate}.</p>
+ * <p>The semaphore ({@code MAX_CONCURRENT_QUERIES}) limits simultaneous
+ * network connections; disk-only collectors (Switch/L2circuit/Bridgedomains)
+ * bypass it. {@link RoutingInstance#merge} is {@code synchronized} to guard
+ * the shared result maps.</p>
  *
  * <h2>Environment variables</h2>
  * <table border="1">
@@ -70,6 +75,8 @@ public class RoutingInstancesReport {
      * @param args command-line arguments (ignored; all config via env vars)
      * @throws Exception on unrecoverable startup error (missing required env var)
      */
+    private static final int MAX_CONCURRENT_QUERIES = 5;
+
     public static void main(String[] args) throws Exception {
         String login = require("ROUTER_USER");
         String pass = require("ROUTER_PASS");
@@ -80,36 +87,45 @@ public class RoutingInstancesReport {
         List<String> ciscoHosts = parseList(env("CISCO_HOSTS", ""));
         List<String> routerosHosts = parseList(env("ROUTEROS_HOSTS", ""));
 
-        log.info("Starting collection — Juniper: {}, Cisco: {}, RouterOS: {}",
-                juniperHosts, ciscoHosts, routerosHosts);
+        log.info("Starting collection — Juniper: {}, Cisco: {}, RouterOS: {} (max {} concurrent)",
+                juniperHosts, ciscoHosts, routerosHosts, MAX_CONCURRENT_QUERIES);
 
         Map<String, RoutingInstance> instances = new TreeMap<>();
         Map<String, Map<String, String>> vrfVplsList = new LinkedHashMap<>();
+        Semaphore semaphore = new Semaphore(MAX_CONCURRENT_QUERIES);
 
-        Collector juniper = new JuniperCollector(login, pass);
-        Collector juniperConnections = new JuniperSwitchCollector(login, pass);
+        Collector juniper          = new JuniperCollector(login, pass);
+        Collector juniperSwitch    = new JuniperSwitchCollector(login, pass);
         Collector juniperL2circuit = new JuniperL2circuitCollector(login, pass);
-        Collector juniperBridgedomains = new JuniperBridgedomainsCollector(login, pass);
-        Collector cisco = new CiscoCollector(login, pass, ciscoEnable);
-        Collector routeros = new RouterOSCollector(login, pass);
+        Collector juniperBridges   = new JuniperBridgedomainsCollector(login, pass);
+        Collector cisco            = new CiscoCollector(login, pass, ciscoEnable);
+        Collector routeros         = new RouterOSCollector(login, pass);
 
-        for (var e : List.of(
-                Map.entry(juniper, juniperHosts),
-                Map.entry(juniperConnections, juniperHosts),
-                Map.entry(juniperL2circuit, juniperHosts),
-                Map.entry(juniperBridgedomains, juniperHosts),
-                Map.entry(cisco, ciscoHosts),
-                Map.entry(routeros, routerosHosts))) {
-            String label = e.getKey().getClass().getSimpleName().replace("Collector", "");
-            for (String host : e.getValue()) {
-                log.info("Collecting from {}: {}", label, host);
-                try {
-                    e.getKey().collect(host, instances, vrfVplsList);
-                } catch (Exception ex) {
-                    log.error("{} {} failed: {}", label, host, ex.getMessage(), ex);
-                }
-            }
-        }
+        // Phase 1: fetch Juniper XML dumps (one SSH session per host)
+        log.info("Phase 1: fetching Juniper configs");
+        runParallel(juniperHosts, host -> {
+            semaphore.acquireUninterruptibly();
+            try { juniper.collect(host, instances, vrfVplsList); }
+            finally { semaphore.release(); }
+        });
+
+        // Phase 2: parse cached XML (disk only) + Cisco + RouterOS
+        log.info("Phase 2: parsing cached dumps, Cisco, RouterOS");
+        runParallel(juniperHosts, host -> {
+            juniperSwitch.collect(host, instances, vrfVplsList);
+            juniperL2circuit.collect(host, instances, vrfVplsList);
+            juniperBridges.collect(host, instances, vrfVplsList);
+        });
+        runParallel(ciscoHosts, host -> {
+            semaphore.acquireUninterruptibly();
+            try { cisco.collect(host, instances, vrfVplsList); }
+            finally { semaphore.release(); }
+        });
+        runParallel(routerosHosts, host -> {
+            semaphore.acquireUninterruptibly();
+            try { routeros.collect(host, instances, vrfVplsList); }
+            finally { semaphore.release(); }
+        });
 
         log.info("Collection complete: {} instances total", instances.size());
 
@@ -119,16 +135,15 @@ public class RoutingInstancesReport {
         List<String[]> orphans = findOrphans(instances, loAddresses);
         log.info("L2CIRCUIT/VPLS orphan check: {} unpaired entries found", orphans.size());
 
-        List<String[]> downConnections = new ArrayList<>();
+        // Phase 3: operational down-state (needs loAddresses)
+        log.info("Phase 3: collecting down state");
+        List<String[]> downConnections = Collections.synchronizedList(new ArrayList<>());
         JuniperDownStateCollector downCollector = new JuniperDownStateCollector(login, pass);
-        for (String host : juniperHosts) {
-            log.info("Collecting down state from: {}", host);
-            try {
-                downConnections.addAll(downCollector.collectDownState(host, loAddresses));
-            } catch (Exception ex) {
-                log.error("DownState {} failed: {}", host, ex.getMessage(), ex);
-            }
-        }
+        runParallel(juniperHosts, host -> {
+            semaphore.acquireUninterruptibly();
+            try { downConnections.addAll(downCollector.collectDownState(host, loAddresses)); }
+            finally { semaphore.release(); }
+        });
         log.info("Down state check: {} connections down total", downConnections.size());
 
         try {
@@ -136,6 +151,30 @@ public class RoutingInstancesReport {
         } catch (IOException e) {
             log.error("Failed to write report to {}: {}", reportPath, e.getMessage());
         }
+    }
+
+    /**
+     * Submits one virtual-thread task per host, waits for all to finish.
+     * Exceptions are caught and logged; they do not abort other tasks.
+     */
+    private static void runParallel(List<String> hosts, HostTask task) {
+        if (hosts.isEmpty()) return;
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (String host : hosts) {
+                executor.submit(() -> {
+                    try {
+                        task.run(host);
+                    } catch (Exception ex) {
+                        log.error("Task failed for {}: {}", host, ex.getMessage(), ex);
+                    }
+                });
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface HostTask {
+        void run(String host) throws Exception;
     }
 
     /**
